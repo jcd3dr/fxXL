@@ -37,7 +37,8 @@ D:\dev\mi-proyecto  ────────► /mnt/d/dev/mi-proyecto
 ```
 
 `wsl.exe` traduce el directorio actual automáticamente, así que `fx` arranca ya
-situado en la carpeta correcta.
+situado en la carpeta correcta. Es exactamente lo mismo que abrir WSL en esa
+carpeta y escribir `fx`, solo que sin el paso intermedio.
 
 ---
 
@@ -111,9 +112,7 @@ notepad $PROFILE
 Añade esta función, sustituyendo la ruta por la que copiaste en el paso 2:
 
 ```powershell
-function fx {
-    wsl --cd . -- /home/tu_usuario/.fx/bin/fx @args
-}
+function fx { wsl "/home/tu_usuario/.fx/bin/fx" $args }
 ```
 
 Guarda, cierra, y recarga el perfil en la sesión actual:
@@ -133,15 +132,11 @@ fx --version
 | Fragmento | Función |
 | --- | --- |
 | `wsl` | Invoca `wsl.exe`, el puente hacia Linux |
-| `--cd .` | Fuerza a WSL a arrancar en el directorio actual de Windows, traducido a `/mnt/...`. Sin esto, algunas configuraciones arrancan en `~` |
-| `--` | Marca el fin de las opciones de `wsl`; todo lo que sigue es el comando a ejecutar |
 | `/home/.../fx` | Ruta absoluta del binario dentro de WSL |
-| `@args` | Reenvía tus argumentos a `fx`, preservando comillas y espacios |
+| `$args` | Reenvía a `fx` todo lo que escribas después del comando |
 
-> **Sobre `@args`:** la sintaxis `$args` que verás en muchos tutoriales
-> funciona en los casos simples, pero `@args` es el operador de *splatting* de
-> PowerShell y conserva correctamente los argumentos con espacios. Como a `fx`
-> le pasarás frases entre comillas (`fx ask "revisa este módulo"`), usa `@args`.
+`wsl.exe` hereda el directorio actual de Windows y lo traduce solo, así que
+`fx` arranca ya situado en tu carpeta de proyecto. No hace falta indicárselo.
 
 ---
 
@@ -182,45 +177,18 @@ Get-ExecutionPolicy -Scope CurrentUser
 
 ## Paso 5: Configurar las credenciales
 
-Este paso no suele documentarse y es donde más gente se atasca: **las variables
-de entorno de Windows no llegan a WSL por defecto.** Si exportas tu clave en
-PowerShell, `fx` no la verá.
+No hay nada especial que hacer por estar en Windows. `fx` se ejecuta dentro de
+WSL, con el mismo usuario y el mismo `HOME` que si abrieras la terminal de
+Ubuntu a mano, así que lee su configuración de `~/.fx/` con normalidad.
 
-Tienes dos opciones.
-
-### Opción A: guardar las credenciales dentro de WSL (recomendado)
-
-Es lo más simple y sobrevive a los reinicios. Desde la terminal de WSL:
+Configúralas una vez, desde la terminal de WSL, como en cualquier Linux:
 
 ```bash
-export FX_COMPAT_BASE_URL="https://openrouter.ai/api/v1"
-export FX_COMPAT_API_KEY="sk-or-v1-..."
-fx login compat
+fx login              # Vercel AI Gateway
+fx login compat       # endpoint compatible con OpenAI (OpenRouter, etc.)
 ```
 
-`fx login compat` guarda el endpoint y la clave en `~/.fx/compat-auth.json` con
-permisos `0600`, así que a partir de ahí funciona sin variables de entorno.
-
-Para Vercel AI Gateway, el equivalente es `fx login` o `fx setup`.
-
-### Opción B: reenviar variables desde Windows con `WSLENV`
-
-Si prefieres mantener las claves en Windows, `WSLENV` es el mecanismo que le
-dice a WSL qué variables debe cruzar la frontera:
-
-```powershell
-$env:FX_COMPAT_BASE_URL = "https://openrouter.ai/api/v1"
-$env:FX_COMPAT_API_KEY  = "sk-or-v1-..."
-$env:WSLENV = "FX_COMPAT_BASE_URL/u:FX_COMPAT_API_KEY/u"
-```
-
-El sufijo `/u` significa "esta variable viaja de Windows hacia WSL". Para que
-persista entre sesiones, añade esas tres líneas a tu `$PROFILE`.
-
-> **Aviso de seguridad:** guardar una clave de API en tu perfil de PowerShell la
-> deja en texto plano en tu disco. La opción A es preferible: el archivo que
-> escribe `fx` tiene permisos restringidos y la clave nunca pasa por el
-> historial de comandos.
+A partir de ahí, la función de PowerShell las encuentra sola.
 
 ---
 
@@ -321,9 +289,8 @@ actualizador respeta.
 | Síntoma | Causa y solución |
 | --- | --- |
 | `command not found` al ejecutar `fx` | La ruta de la función es incorrecta. Vuelve al paso 2 y usa la salida exacta de `which fx` |
-| `fx` arranca en tu carpeta personal en vez del proyecto | Falta `--cd .` en la función. Revisa el paso 3 |
 | El perfil no se carga al abrir PowerShell | Política de ejecución. Aplica el paso 4 |
-| `fx` no encuentra las credenciales | Las variables de Windows no cruzan a WSL. Aplica el paso 5 |
+| `fx` no encuentra las credenciales | Ejecuta `fx login` dentro de la terminal de WSL. Ver el paso 5 |
 | Los acentos o los caracteres de dibujo se ven mal | Usa **Windows Terminal**, no la consola clásica `conhost` |
 | Todo va lento en un proyecto grande | Es el acceso a `/mnt/`. Considera mover el repositorio al disco de Linux |
 
@@ -332,7 +299,7 @@ dónde cree `fx` que está:
 
 ```powershell
 cd D:\dev\mi-proyecto
-wsl --cd . -- pwd
+wsl pwd
 # Debe imprimir: /mnt/d/dev/mi-proyecto
 ```
 

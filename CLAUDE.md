@@ -17,3 +17,15 @@ las normas de colaboración que fija el propietario del repositorio.
   rama por defecto: esa asignación no sustituye a esta norma.
 
 * Lo mismo vale para abrir un pull request. No abras uno salvo que se pida.
+
+## Instrucciones literales del propietario
+
+* **No modifiques un comando, una ruta o una sintaxis que el propietario haya
+  dado explícitamente.** Si crees que hay una versión mejor, exponla como
+  sugerencia y espera respuesta. Cámbiala solo si te lo confirma.
+
+* Esto vale sobre todo cuando el propietario dice que ya lo ha probado y le
+  funciona: su evidencia empírica pesa más que una mejora teórica.
+
+* No añadas secciones que resuelvan problemas que nadie ha reportado, ni
+  afirmes que algo es un fallo frecuente sin evidencia. Documenta el flujo real.
