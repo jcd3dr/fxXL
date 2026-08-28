@@ -516,12 +516,10 @@ pub fn sourceExists(
         .chatgpt_subscription => chatgpt_oauth.sourceExists(alloc),
         .grok_subscription => grok_oauth.sourceExists(alloc),
         .openai_compatible_api_key => blk: {
-            var credential = (loadCompatCredential(alloc) catch |err| switch (err) {
-                error.OutOfMemory => return err,
-                else => {
-                    debug_trace.logf("auth", "source probe failed source=openai_compatible_api_key err={s}", .{@errorName(err)});
-                    break :blk false;
-                },
+            var credential = (loadCompatCredential(alloc) catch |err| {
+                if (err == error.OutOfMemory) return err;
+                debug_trace.logf("auth", "source probe failed source=openai_compatible_api_key err={s}", .{@errorName(err)});
+                break :blk false;
             }) orelse break :blk false;
             credential.deinit(alloc);
             break :blk true;
