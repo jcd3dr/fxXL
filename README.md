@@ -87,14 +87,6 @@ To use an AI Gateway API key instead:
 fx setup
 ```
 
-### Windows
-
-fx has no native Windows build yet: it uses POSIX terminal, process, and file
-permission APIs directly. It runs on Windows 11 through WSL, and a PowerShell
-wrapper function lets you call it from your native Windows folders as if it
-were installed on Windows. See
-[`docs/windows-wsl.md`](docs/windows-wsl.md) (in Spanish) for the full setup.
-
 Run fx from a project:
 
 ```bash
