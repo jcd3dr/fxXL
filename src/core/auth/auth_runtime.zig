@@ -407,7 +407,7 @@ pub const PickerView = struct {
             else
                 4,
             .connections => connectionChoiceCount(),
-            .provider => if (comptime host_target.is_wasm) 2 else 3,
+            .provider => if (comptime host_target.is_wasm) 2 else 4,
             .sign_in, .api_key => 0,
             .change_team => blk: {
                 var count: usize = 0;
@@ -441,6 +441,7 @@ pub const PickerView = struct {
                 0 => .{ .provider = .gateway },
                 1 => .{ .provider = .codex },
                 2 => if (comptime host_target.is_wasm) null else .{ .provider = .grok },
+                3 => if (comptime host_target.is_wasm) null else .{ .provider = .compat },
                 else => null,
             },
             .sign_in, .api_key => null,
@@ -614,6 +615,12 @@ pub const StatusSnapshot = struct {
             return switch (surface) {
                 .cli => credentials.missing_grok_credential_message,
                 .interactive => credentials.missing_grok_interactive_credential_message,
+            };
+        }
+        if (self.required_source == .openai_compatible_api_key) {
+            return switch (surface) {
+                .cli => credentials.missing_compat_credential_message,
+                .interactive => credentials.missing_compat_interactive_credential_message,
             };
         }
         return switch (surface) {
@@ -1596,7 +1603,18 @@ pub const Runtime = struct {
                     self,
                     loadRuntimeCredentialSource,
                 ),
-            .gateway => if (self.credentialSource() != .chatgpt_subscription and self.credentialSource() != .grok_subscription)
+            .compat => if (self.credentialSource() == .openai_compatible_api_key)
+                false
+            else
+                self.selectSourceWithLoader(
+                    alloc,
+                    .openai_compatible_api_key,
+                    self,
+                    loadRuntimeCredentialSource,
+                ),
+            .gateway => if (self.credentialSource() != .chatgpt_subscription and
+                self.credentialSource() != .grok_subscription and
+                self.credentialSource() != .openai_compatible_api_key)
                 false
             else
                 @as(?bool, try self.reselectByPrecedenceWithDeps(

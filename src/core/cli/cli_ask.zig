@@ -1393,6 +1393,8 @@ fn missingCredentialResult(
         credentials.missing_chatgpt_credential_message
     else if (provider == .grok)
         credentials.missing_grok_credential_message
+    else if (provider == .compat)
+        credentials.missing_compat_credential_message
     else
         credentials.missing_credential_message;
     try options.deps.write_stderr(options.deps.stderr_ctx, "fx ask: ");

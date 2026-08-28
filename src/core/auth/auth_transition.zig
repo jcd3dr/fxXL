@@ -39,6 +39,7 @@ pub const LogoutFacts = struct {
 
 pub fn decideLogoutProvider(facts: LogoutFacts) model_provider.ProviderId {
     if (facts.requested) |provider| return provider;
+    if (facts.selected == .compat or facts.active_source == .openai_compatible_api_key) return .compat;
     if (facts.selected == .grok or facts.active_source == .grok_subscription) return .grok;
     if (facts.selected == .codex or facts.active_source == .chatgpt_subscription) return .codex;
 
@@ -73,6 +74,10 @@ pub fn signInCompletion(
             .{ .switch_provider = .grok }
         else
             .{ .activate_source = .grok_subscription },
+        .compat => if (provider_routing_supported)
+            .{ .switch_provider = .compat }
+        else
+            .{ .activate_source = .openai_compatible_api_key },
     };
 }
 

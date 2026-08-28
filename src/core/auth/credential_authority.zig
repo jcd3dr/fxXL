@@ -26,8 +26,11 @@ pub fn derive(
         .fx_login,
         .stored_key,
         => hash.update("\x00slot\x00"),
+        // A third-party endpoint identifies the route the same way a
+        // subscription account does: the same key elsewhere is not the same route.
         .chatgpt_subscription,
         .grok_subscription,
+        .openai_compatible_api_key,
         => {
             const account = account_id orelse return null;
             if (account.len == 0) return null;

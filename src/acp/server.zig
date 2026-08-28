@@ -1379,6 +1379,8 @@ fn handleInitialize(state: *ServerState, alloc: Allocator, msg: *jsonrpc.Message
                     credentials.missing_chatgpt_credential_message
                 else if (state.provider == .grok)
                     credentials.missing_grok_credential_message
+                else if (state.provider == .compat)
+                    credentials.missing_compat_credential_message
                 else
                     credentials.missing_credential_message,
             });
@@ -1392,6 +1394,8 @@ fn handleInitialize(state: *ServerState, alloc: Allocator, msg: *jsonrpc.Message
                 credentials.missing_chatgpt_credential_message
             else if (state.provider == .grok)
                 credentials.missing_grok_credential_message
+            else if (state.provider == .compat)
+                credentials.missing_compat_credential_message
             else
                 credentials.missing_credential_message,
         });
@@ -1573,6 +1577,8 @@ fn handleSetConfigOption(state: *ServerState, alloc: Allocator, msg: *jsonrpc.Me
                         .code = ErrorCode.invalid_request,
                         .message = if (session.provider == .codex)
                             credentials.missing_chatgpt_credential_message
+                        else if (session.provider == .compat)
+                            credentials.missing_compat_credential_message
                         else
                             credentials.missing_grok_credential_message,
                     });
@@ -1659,6 +1665,8 @@ fn handleSetConfigOption(state: *ServerState, alloc: Allocator, msg: *jsonrpc.Me
                             credentials.missing_chatgpt_credential_message
                         else if (target == .grok)
                             credentials.missing_grok_credential_message
+                        else if (target == .compat)
+                            credentials.missing_compat_credential_message
                         else
                             credentials.missing_credential_message,
                     });

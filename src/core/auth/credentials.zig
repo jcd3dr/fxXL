@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const chatgpt_oauth = @import("chatgpt_oauth.zig");
+const compat_endpoint = @import("../config/compat_endpoint.zig");
+const compat_session = @import("compat_session.zig");
 const grok_oauth = @import("grok_oauth.zig");
 const debug_trace = @import("../shared/debug_trace.zig");
 const host = @import("../hosts/host.zig");
@@ -22,6 +24,7 @@ pub const CatalogPublicOnly = union(enum) {
     authenticated_credential_rejected: Source,
     chatgpt_subscription,
     grok_subscription,
+    openai_compatible,
 
     fn credentialSource(self: CatalogPublicOnly) ?Source {
         return switch (self) {
@@ -31,6 +34,7 @@ pub const CatalogPublicOnly = union(enum) {
             .authenticated_credential_rejected => |source| source,
             .chatgpt_subscription => .chatgpt_subscription,
             .grok_subscription => .grok_subscription,
+            .openai_compatible => .openai_compatible_api_key,
         };
     }
 };
@@ -44,6 +48,7 @@ pub const CatalogAuthenticatedSource = enum {
     stored_key,
     chatgpt_subscription,
     grok_subscription,
+    openai_compatible_api_key,
 
     fn credentialSource(self: CatalogAuthenticatedSource) Source {
         return switch (self) {
@@ -53,6 +58,7 @@ pub const CatalogAuthenticatedSource = enum {
             .stored_key => .stored_key,
             .chatgpt_subscription => .chatgpt_subscription,
             .grok_subscription => .grok_subscription,
+            .openai_compatible_api_key => .openai_compatible_api_key,
         };
     }
 };
@@ -91,7 +97,11 @@ pub const CatalogAccess = union(enum) {
     pub fn publicFallbackAfterRejection(self: CatalogAccess) ?CatalogAccess {
         return switch (self) {
             .public_only => null,
-            .authenticated => |access| if (access.source == .chatgpt_subscription or access.source == .grok_subscription)
+            // Subscription and third-party routes have no anonymous catalog to
+            // fall back to; a rejection there is terminal.
+            .authenticated => |access| if (access.source == .chatgpt_subscription or
+                access.source == .grok_subscription or
+                access.source == .openai_compatible_api_key)
                 null
             else
                 .{
@@ -168,6 +178,7 @@ pub fn catalogAccessForCredentialAndAccount(
         .stored_key => .stored_key,
         .chatgpt_subscription => .chatgpt_subscription,
         .grok_subscription => .grok_subscription,
+        .openai_compatible_api_key => .openai_compatible_api_key,
         .fx_login => blk: {
             const team = team_context orelse
                 return .{ .public_only = .fx_login_team_required };
@@ -180,8 +191,13 @@ pub fn catalogAccessForCredentialAndAccount(
         .authenticated = .{
             .source = authenticated_source,
             .credential = credential,
-            .team_context = if (authenticated_source == .chatgpt_subscription or authenticated_source == .grok_subscription) null else team_context,
-            .account_id = if (authenticated_source == .grok_subscription) account_id else null,
+            .team_context = if (authenticated_source == .chatgpt_subscription or
+                authenticated_source == .grok_subscription or
+                authenticated_source == .openai_compatible_api_key) null else team_context,
+            // Grok carries its user identity here; the OpenAI-compatible route
+            // carries the base URL it was configured with.
+            .account_id = if (authenticated_source == .grok_subscription or
+                authenticated_source == .openai_compatible_api_key) account_id else null,
         },
     };
 }
@@ -202,6 +218,10 @@ pub const missing_chatgpt_credential_message = "fx needs a Codex subscription lo
 pub const missing_chatgpt_interactive_credential_message = "Codex needs a subscription login. Run /login, open Connections, then choose Codex subscription.";
 pub const missing_grok_credential_message = "fx needs a Grok subscription login for this model. Run fx login grok.";
 pub const missing_grok_interactive_credential_message = "Grok needs a subscription login. Run /login, open Connections, then choose Grok subscription.";
+pub const missing_compat_credential_message = "fx needs an OpenAI-compatible endpoint for this model. Set " ++
+    compat_endpoint.base_url_env ++ " and " ++ compat_endpoint.api_key_env ++ ", then run fx login compat.";
+pub const missing_compat_interactive_credential_message = "The OpenAI-compatible route needs an endpoint. Set " ++
+    compat_endpoint.base_url_env ++ " and " ++ compat_endpoint.api_key_env ++ ", then run fx login compat.";
 pub const unreadable_store_message = "fx could not read the stored API key from " ++ stored_key_backend_label ++ ". A key may be saved but unreadable. Set FX_TRACE_LOG for the failing step, or set AI_GATEWAY_API_KEY.";
 
 test "public credential guidance spells fx lowercase" {
@@ -297,6 +317,7 @@ pub fn resolveForProvider(
             };
             return .{ .credential = credential };
         },
+        .compat => return .{ .credential = try loadCompatCredential(alloc) },
         .gateway => {},
     }
     return resolvePreferring(
@@ -304,7 +325,10 @@ pub fn resolveForProvider(
         transport,
         secret_store,
         mode,
-        if (preferred == .chatgpt_subscription or preferred == .grok_subscription) null else preferred,
+        // A route-scoped source never leaks into the Gateway request.
+        if (preferred == .chatgpt_subscription or
+            preferred == .grok_subscription or
+            preferred == .openai_compatible_api_key) null else preferred,
     );
 }
 
@@ -394,6 +418,7 @@ fn loadPreferredSource(
             .stored => loadStoredGrokCredential(alloc),
             .refresh_if_needed => loadGrokCredential(alloc, transport, .if_needed),
         },
+        .openai_compatible_api_key => loadCompatCredential(alloc),
         else => loadSource(alloc, transport, secret_store, source),
     };
 }
@@ -411,6 +436,60 @@ pub fn loadSource(
         .stored_key => loadStoredKeyCredential(alloc, secret_store),
         .chatgpt_subscription => loadChatGptCredential(alloc, transport, .if_needed),
         .grok_subscription => loadGrokCredential(alloc, transport, .if_needed),
+        .openai_compatible_api_key => loadCompatCredential(alloc),
+    };
+}
+
+/// Resolves the OpenAI-compatible route. The environment wins over the stored
+/// session so a shell can point fx at a different endpoint without rewriting
+/// `~/.fx/compat-auth.json`. The endpoint travels as the credential's account
+/// identity: the same key at a different base URL is a different route.
+fn loadCompatCredential(alloc: std.mem.Allocator) !?Credential {
+    const env_base_url = nonEmptyEnvValue(compat_endpoint.base_url_env);
+    const env_api_key = nonEmptyEnvValue(compat_endpoint.api_key_env);
+    if (env_base_url != null and env_api_key != null) {
+        const base_url = compat_endpoint.normalizeBaseUrl(env_base_url.?) catch |err| {
+            debug_trace.logf("auth", "compat env endpoint rejected err={s}", .{@errorName(err)});
+            return null;
+        };
+        const api_key = compat_endpoint.validateApiKey(env_api_key.?) catch |err| {
+            debug_trace.logf("auth", "compat env key rejected err={s}", .{@errorName(err)});
+            return null;
+        };
+        return try compatCredential(alloc, base_url, api_key);
+    }
+
+    var session = (compat_session.load(alloc) catch |err| {
+        if (err == error.OutOfMemory) return err;
+        debug_trace.logf("auth", "compat session load failed err={s}", .{@errorName(err)});
+        return null;
+    }) orelse return null;
+    defer session.deinit(alloc);
+
+    // A base URL supplied by the environment still overrides a stored one.
+    const base_url = if (env_base_url) |raw|
+        compat_endpoint.normalizeBaseUrl(raw) catch session.base_url
+    else
+        session.base_url;
+    const api_key = if (env_api_key) |raw|
+        compat_endpoint.validateApiKey(raw) catch session.api_key
+    else
+        session.api_key;
+    return try compatCredential(alloc, base_url, api_key);
+}
+
+fn compatCredential(
+    alloc: std.mem.Allocator,
+    base_url: []const u8,
+    api_key: []const u8,
+) !Credential {
+    const token = try alloc.dupe(u8, api_key);
+    errdefer secret.zeroAndFree(alloc, token);
+    const account_id = try alloc.dupe(u8, base_url);
+    return .{
+        .token = token,
+        .source = .openai_compatible_api_key,
+        .account_id = account_id,
     };
 }
 
@@ -436,6 +515,17 @@ pub fn sourceExists(
         },
         .chatgpt_subscription => chatgpt_oauth.sourceExists(alloc),
         .grok_subscription => grok_oauth.sourceExists(alloc),
+        .openai_compatible_api_key => blk: {
+            var credential = (loadCompatCredential(alloc) catch |err| switch (err) {
+                error.OutOfMemory => return err,
+                else => {
+                    debug_trace.logf("auth", "source probe failed source=openai_compatible_api_key err={s}", .{@errorName(err)});
+                    break :blk false;
+                },
+            }) orelse break :blk false;
+            credential.deinit(alloc);
+            break :blk true;
+        },
         .stored_key => blk: {
             if (secret_store.isDisabled()) break :blk false;
             const stored = secret_store.load(alloc) catch |err| switch (err) {
@@ -662,6 +752,7 @@ pub fn sourceLabel(source: Source) []const u8 {
         .stored_key => "stored API key (" ++ stored_key_backend_label ++ ")",
         .chatgpt_subscription => "Codex subscription",
         .grok_subscription => "Grok subscription",
+        .openai_compatible_api_key => "OpenAI-compatible API key",
     };
 }
 
