@@ -25,6 +25,12 @@ It's open source (Apache-2.0), model-agnostic, and suitable for both local and c
 curl -fsSL https://fx.sh/setup.sh | bash
 ```
 
+### Windows (via WSL)
+
+fx has no native Windows build yet, but that does not mean you cannot install it on Windows 11 — you can, and once it is set up it feels native.
+
+Windows 11 ships with WSL (Windows Subsystem for Linux), a compatibility layer that runs a real Linux environment alongside Windows and gives it access to your Windows drives. The install command above runs inside that environment unmodified. On top of that, [`docs/windows-wsl.md`](docs/windows-wsl.md) walks through adding one small PowerShell function so you never have to open WSL yourself or think about it again: open a terminal in any Windows folder — including right-click → **Open in Terminal** from File Explorer — type `fx`, and it runs against your real Windows files. fx is what you are talking to; WSL just carries the call in the background.
+
 ## Run fx
 
 Sign in with Vercel AI Gateway:
