@@ -1,4 +1,4 @@
-name: Release
+name: fxXL Release
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stable-release
+  group: fxxl-stable-release
   cancel-in-progress: false
 
 jobs:
@@ -17,29 +17,55 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       needed: ${{ steps.check.outputs.needed }}
+      tag: ${{ steps.check.outputs.tag }}
       version: ${{ steps.check.outputs.version }}
+      upstream_commit: ${{ steps.check.outputs.upstream_commit }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - name: Check if release needed
+      - name: Validate fxXL release identity
         id: check
+        shell: bash
         run: |
-          VERSION=$(grep 'pub const version' src/main.zig | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          set -euo pipefail
+          VERSION=$(tr -d '[:space:]' < FXXL_VERSION)
+          UPSTREAM_COMMIT=$(tr -d '[:space:]' < UPSTREAM_BASE)
           if ! [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::src/main.zig version is not strict SemVer"
+            echo "::error::FXXL_VERSION is not strict SemVer"
             exit 1
           fi
-          TAG="v${VERSION}"
-          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
+          if ! [[ "$UPSTREAM_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::UPSTREAM_BASE must contain one full Git commit"
+            exit 1
+          fi
+          TAG="fxxl-v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=${UPSTREAM_COMMIT}" >> "$GITHUB_OUTPUT"
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "Tag ${TAG} exists, no release needed"
+            echo "${TAG} already exists; no release needed"
           else
             echo "needed=true" >> "$GITHUB_OUTPUT"
-            echo "Tag ${TAG} missing, release needed"
+            echo "${TAG} will be published from ${GITHUB_SHA}"
           fi
+
+  test:
+    needs: check-version
+    if: needs.check-version.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Setup Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: "0.16.0"
+      - name: Test
+        run: zig build test -Doptimize=ReleaseSafe
+      - name: Test installer
+        run: sh scripts/test-setup.sh
 
   build-linux:
     needs: check-version
@@ -56,23 +82,21 @@ jobs:
             target: aarch64-linux
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
       - name: Setup Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: "0.16.0"
-
       - name: Build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
-
       - name: Package
+        shell: bash
         run: |
+          set -euo pipefail
           package_dir="$RUNNER_TEMP/fx-package-${{ matrix.name }}"
           mkdir -p "$package_dir"
           cp zig-out/bin/fx LICENSE THIRD_PARTY_NOTICES.md "$package_dir/"
-          tar -czf fx-${{ matrix.name }}.tar.gz -C "$package_dir" fx LICENSE THIRD_PARTY_NOTICES.md
-          sha256sum fx-${{ matrix.name }}.tar.gz > fx-${{ matrix.name }}.tar.gz.sha256
-
+          tar -czf "fx-${{ matrix.name }}.tar.gz" -C "$package_dir" fx LICENSE THIRD_PARTY_NOTICES.md
+          sha256sum "fx-${{ matrix.name }}.tar.gz" > "fx-${{ matrix.name }}.tar.gz.sha256"
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -80,139 +104,48 @@ jobs:
           path: |
             fx-${{ matrix.name }}.tar.gz
             fx-${{ matrix.name }}.tar.gz.sha256
-
-  build-macos-x86_64:
-    needs: check-version
-    if: needs.check-version.outputs.needed == 'true'
-    name: Build macos-x86_64
-    runs-on: macos-15-intel
-    environment: apple-signing
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Setup Zig
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
-        with:
-          version: "0.16.0"
-
-      - name: Build
-        run: zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-macos
-
-      - name: Sign and notarize
-        env:
-          APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
-          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
-          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
-        run: scripts/sign-and-notarize-macos.sh zig-out/bin/fx
-
-      - name: Package
-        run: |
-          package_dir="$RUNNER_TEMP/fx-package-macos-x86_64"
-          mkdir -p "$package_dir"
-          cp zig-out/bin/fx LICENSE THIRD_PARTY_NOTICES.md "$package_dir/"
-          tar -czf fx-macos-x86_64.tar.gz -C "$package_dir" fx LICENSE THIRD_PARTY_NOTICES.md
-          shasum -a 256 fx-macos-x86_64.tar.gz > fx-macos-x86_64.tar.gz.sha256
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: fx-macos-x86_64
-          path: |
-            fx-macos-x86_64.tar.gz
-            fx-macos-x86_64.tar.gz.sha256
-
-  build-macos-arm64:
-    needs: check-version
-    if: needs.check-version.outputs.needed == 'true'
-    permissions:
-      actions: read
-      contents: read
-    uses: ./.github/workflows/pgso-macos-arm64.yml
-    with:
-      package_release: true
+          if-no-files-found: error
 
   release:
-    needs: [check-version, build-linux, build-macos-x86_64, build-macos-arm64]
+    needs: [check-version, test, build-linux]
+    if: needs.check-version.outputs.needed == 'true'
     runs-on: ubuntu-latest
-    environment: release
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
       - name: Download artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: fx-*
+          pattern: fx-linux-*
           merge-multiple: true
-
-      - name: Create git tag
+      - name: Verify assets and create manifest
         env:
-          RELEASE_TAG: ${{ needs.check-version.outputs.version }}
+          FXXL_VERSION: ${{ needs.check-version.outputs.version }}
+          UPSTREAM_COMMIT: ${{ needs.check-version.outputs.upstream_commit }}
+        shell: bash
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          git tag -- "$RELEASE_TAG"
-          git push origin "refs/tags/${RELEASE_TAG}"
-
-      - name: Extract changelog entry
-        run: |
-          awk '/<!-- release:start -->/{found=1; next} /<!-- release:end -->/{found=0} found{print}' CHANGELOG.md > /tmp/release-notes.md
-          LINES=$(wc -l < /tmp/release-notes.md | tr -d ' ')
-          if [ "$LINES" -lt 2 ]; then
-            echo "Error: No release notes found between <!-- release:start --> and <!-- release:end --> markers in CHANGELOG.md"
-            exit 1
-          fi
-          echo "Extracted release notes ($LINES lines)"
-
-      - name: Create GitHub Release
+          sha256sum --check fx-linux-x86_64.tar.gz.sha256
+          sha256sum --check fx-linux-aarch64.tar.gz.sha256
+          jq -n \
+            --arg version "$FXXL_VERSION" \
+            --arg upstream_commit "$UPSTREAM_COMMIT" \
+            --arg source_commit "$GITHUB_SHA" \
+            '{schema_version: 1, version: $version, upstream_commit: $upstream_commit, source_commit: $source_commit}' \
+            > manifest.json
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
-          tag_name: ${{ needs.check-version.outputs.version }}
-          body_path: /tmp/release-notes.md
+          tag_name: ${{ needs.check-version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: fxXL ${{ needs.check-version.outputs.version }}
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
           files: |
-            fx-*.tar.gz
-            fx-*.tar.gz.sha256
-
-      - name: Publish to CDN
-        env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
-        run: |
-          set -euo pipefail
-          [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          CDN_BASE="cli"
-
-          for FILE in fx-*.tar.gz fx-*.tar.gz.sha256; do
-            [ -f "$FILE" ] || continue
-            CONTENT_TYPE="application/octet-stream"
-            [[ "$FILE" == *.sha256 ]] && CONTENT_TYPE="text/plain"
-            [[ "$FILE" == *.tar.gz ]] && [[ "$FILE" != *.sha256 ]] && CONTENT_TYPE="application/gzip"
-
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              -X PUT "https://blob.vercel-storage.com/${CDN_BASE}/${VERSION}/${FILE}" \
-              -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
-              -H "x-api-version: 7" \
-              -H "x-content-type: ${CONTENT_TYPE}" \
-              -H "x-add-random-suffix: 0" \
-              -H "x-cache-control-max-age: 31536000" \
-              --data-binary "@${FILE}")
-            echo "Uploaded ${FILE} -> ${CDN_BASE}/${VERSION}/${FILE} ($HTTP_CODE)"
-            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-              echo "::error::Failed to upload ${FILE} to CDN ($HTTP_CODE)"
-              exit 1
-            fi
-          done
-
-          echo -n "$VERSION" > /tmp/latest.txt
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X PUT "https://blob.vercel-storage.com/${CDN_BASE}/latest.txt" \
-            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
-            -H "x-api-version: 7" \
-            -H "x-content-type: text/plain" \
-            -H "x-add-random-suffix: 0" \
-            -H "x-cache-control-max-age: 60" \
-            --data-binary "@/tmp/latest.txt")
-          echo "Updated latest.txt to $VERSION ($HTTP_CODE)"
+            manifest.json
+            fx-linux-x86_64.tar.gz
+            fx-linux-x86_64.tar.gz.sha256
+            fx-linux-aarch64.tar.gz
+            fx-linux-aarch64.tar.gz.sha256
