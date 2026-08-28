@@ -2,6 +2,58 @@
 
 Instructions for AI coding agents working with this codebase.
 
+## fxXL Downstream Fork Policy
+
+This repository is the `jcd3dr/fxXL` downstream distribution of
+`vercel-labs/fx`. Upstream is the technical base; origin is the authority for
+fxXL source, installation artifacts, releases, and updates.
+
+The maintained repository state is always **a reviewed upstream base plus a
+small explicit patch stack**. Agents working here must follow these rules:
+
+1. Read `UPSTREAM_BASE` before modifying upstream-owned code. Inspect
+   `git diff upstream/main...HEAD` and keep the downstream surface as small as
+   the requested behavior permits.
+2. Prefer focused fxXL-owned modules over copying, renaming, or broadly
+   refactoring upstream modules. Hooks in upstream-owned files must remain
+   small and typed.
+3. Keep these concerns in separate commits: OpenAI-compatible inference,
+   fxXL distribution/update behavior, and downstream governance/documentation.
+4. Never point fxXL installation, release, or update behavior to
+   `releases.fx.sh`, Vercel Blob, or release artifacts owned by
+   `vercel-labs/fx`. Production artifacts come only from GitHub Releases in
+   `jcd3dr/fxXL`.
+5. Do not merge or rebase a new upstream revision without first reviewing its
+   changes. After integration, update `UPSTREAM_BASE`, run the focused provider
+   and distribution checks, build the binary, and rehearse the next rebase.
+6. If upstream fully implements a downstream capability, remove the redundant
+   fxXL patch. If upstream implements only part of it, retain only the missing
+   behavior.
+7. Preserve Apache-2.0 notices and upstream attribution. Do not include
+   unrelated cleanup in an upstream synchronization.
+8. A patch-stack rebase may update the fxXL branch only with explicit
+   maintainer approval and `git push --force-with-lease`. Unconditional force
+   pushes are forbidden.
+9. Do not declare a release installable until the exact GitHub Release has been
+   installed into a temporary clean directory through the canonical fxXL
+   `setup.sh` command.
+
+The generic compatibility route is vendor-neutral. External endpoints require
+HTTPS. Plain HTTP is permitted only for loopback endpoints such as
+`localhost`, `127.0.0.1`, and `::1`. OpenRouter, Ollama, and other services are
+examples, not architectural owners.
+
+### Upstream synchronization checklist
+
+1. Fetch `upstream/main` and review the commit range from `UPSTREAM_BASE`.
+2. Rebase the downstream patch stack onto the selected upstream commit.
+3. Resolve conflicts inside the smallest owning patch; do not mix concerns.
+4. Update `UPSTREAM_BASE` to the selected 40-character commit.
+5. Run formatting, focused tests, ReleaseSafe build, and the built binary.
+6. Verify all production installation and update origins still identify
+   `jcd3dr/fxXL`.
+7. Publish a new fxXL release only after exact-commit CI succeeds.
+
 ## Declaring Work Ready
 
 Do not say the work is "ready", "done", "good to go", "complete", or similar until you have personally run the binary and exercised the change on its happy path. A passing test suite is necessary, not sufficient — tests in this repo do not always construct the full runtime, attach a TTY, or spawn background threads, so they will not catch startup crashes, render regressions, or thread-lifetime bugs.
@@ -430,7 +482,11 @@ Do not create version tags manually. Do not change `build.zig.zon` version (it i
 
 ## Repository and License
 
-The canonical repository is `vercel-labs/fx` on GitHub. All URLs, links, and references to the repo must use `vercel-labs/fx` (not `vercel/fx`, `user/fx`, or any other org/owner). Licensed under Apache-2.0.
+`vercel-labs/fx` is canonical for the upstream base project.
+`jcd3dr/fxXL` is canonical for this downstream distribution, including its
+installer, release artifacts, and updater. Shared upstream documentation and
+attribution may link to `vercel-labs/fx`; fxXL distribution links must identify
+`jcd3dr/fxXL`. Licensed under Apache-2.0.
 
 ## What Not To Do
 
