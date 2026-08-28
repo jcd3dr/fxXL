@@ -4,6 +4,7 @@ const build_options = @import("build_options");
 const io_mod = @import("core/shared/io.zig");
 
 pub const version = "0.0.6";
+const distribution_version = build_options.fork_version;
 
 const app_lifecycle = @import("core/app/app_lifecycle.zig");
 const provider_runtime = @import("core/app/provider_runtime.zig");
@@ -367,7 +368,7 @@ fn currentBuild() update_target.CurrentBuild {
 }
 
 const App = struct {
-    pub const app_version = version;
+    pub const app_version = distribution_version;
     pub const host_profile = if (host_target.is_wasm) host_runtime_profile.wasm else host_runtime_profile.native;
     pub const input_limits = paste_framing.default_input_limits;
     pub const build_update_channel = compiled_update_channel;
@@ -3088,7 +3089,7 @@ fn writeTopLevelHelpFast(raw_env: RawEnviron) !void {
         fixed.allocator(),
         builtin_commands.top_level_registry,
         columns,
-        version,
+        distribution_version,
         style,
     );
     try writeStdoutFast(text);
@@ -3441,7 +3442,7 @@ test "native app preserves the built-in tool set without workspace metadata" {
 
 fn fullEntryConfig() app_entry_runtime.Config {
     return .{
-        .version = version,
+        .version = distribution_version,
         .revision = build_options.git_commit,
         .build_channel = compiled_update_channel,
         .command_catalog = builtin_commands.top_level_registry,
@@ -3479,7 +3480,7 @@ fn fullEntryConfig() app_entry_runtime.Config {
 
 fn localEntryConfig() app_entry_runtime.Config {
     return .{
-        .version = version,
+        .version = distribution_version,
         .revision = build_options.git_commit,
         .build_channel = compiled_update_channel,
         .command_catalog = builtin_commands.top_level_registry,
@@ -3517,7 +3518,7 @@ fn localEntryConfig() app_entry_runtime.Config {
 
 fn emptyEntryConfig() app_entry_runtime.Config {
     return .{
-        .version = version,
+        .version = distribution_version,
         .revision = build_options.git_commit,
         .build_channel = compiled_update_channel,
         .command_catalog = builtin_commands.top_level_registry,
@@ -3818,7 +3819,7 @@ test "/version command writes version to transcript" {
     const notice = app.shell.entries.items[0].semantic_notice;
     try std.testing.expectEqualStrings("version", notice.topic);
     try std.testing.expectEqual(types.NoticeTone.neutral, notice.tone);
-    try std.testing.expect(std.mem.find(u8, notice.body, version) != null);
+    try std.testing.expect(std.mem.find(u8, notice.body, distribution_version) != null);
 }
 
 test "background process registry ignores stale watcher urls" {
