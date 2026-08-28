@@ -1,12 +1,12 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const io_mod = @import("../shared/io.zig");
+const fork_release = @import("fork_release.zig");
 const update_target = @import("update_target.zig");
 
 const Allocator = std.mem.Allocator;
 
 const recv_timeout_sec: i64 = 30;
-const latest_version_max_bytes: usize = 128;
 const checksum_max_bytes: usize = 4096;
 
 const Channel = update_target.Channel;
@@ -18,13 +18,13 @@ fn setRecvTimeout(conn: *std.http.Client.Connection) void {
     std.posix.setsockopt(sock, std.posix.SOL.SOCKET, std.posix.SO.RCVTIMEO, std.mem.asBytes(&timeout)) catch {};
 }
 
-pub const cdn_base = "https://releases.fx.sh";
+pub const release_base = fork_release.stable_release_base;
 
-pub fn resolveCdnBase() []const u8 {
+pub fn resolveReleaseBase() []const u8 {
     if (io_mod.getenv("FX_E2E_UPGRADE_BASE_URL")) |url| {
         if (isLoopbackE2eUpgradeBase(url)) return url;
     }
-    return cdn_base;
+    return release_base;
 }
 
 fn isLoopbackE2eUpgradeBase(url: []const u8) bool {
@@ -47,11 +47,10 @@ fn isLoopbackE2eUpgradeBase(url: []const u8) bool {
 }
 
 pub const platform = platformFromTarget() orelse
-    @compileError("unsupported platform for auto-upgrade (requires macOS or Linux, x86_64 or aarch64)");
+    @compileError("unsupported platform for fxXL auto-upgrade (requires Linux x86_64 or aarch64)");
 
 fn platformFromTarget() ?[]const u8 {
     const os: ?[]const u8 = switch (builtin.os.tag) {
-        .macos => "macos",
         .linux => "linux",
         else => null,
     };
@@ -71,45 +70,27 @@ fn platformFromTarget() ?[]const u8 {
 pub fn fetchTarget(alloc: Allocator, channel: Channel, base_url: []const u8) !Target {
     return switch (channel) {
         .stable => blk: {
-            const latest = try fetchLatestVersion(alloc, base_url);
-            defer alloc.free(latest);
-            break :blk Target.initStable(alloc, latest) catch return error.FetchFailed;
-        },
-        .dev => blk: {
             var client: std.http.Client = .{ .allocator = alloc, .io = io_mod.getIo() };
             defer client.deinit();
-            const url = try std.fmt.allocPrint(alloc, "{s}/dev.json", .{base_url});
+            const url = try fork_release.manifestUrl(alloc, base_url);
             defer alloc.free(url);
-            const manifest = try fetchTextBounded(
+            const bytes = try fetchTextBounded(
                 &client,
                 alloc,
                 url,
-                update_target.max_manifest_bytes,
+                fork_release.max_manifest_bytes,
             );
-            defer alloc.free(manifest);
-            break :blk Target.parseDevManifest(alloc, manifest) catch return error.FetchFailed;
+            defer alloc.free(bytes);
+            break :blk parseStableReleaseManifest(alloc, bytes) catch return error.FetchFailed;
         },
+        .dev => error.UnsupportedChannel,
     };
 }
 
-fn fetchLatestVersion(alloc: Allocator, base_url: []const u8) ![]u8 {
-    var client: std.http.Client = .{ .allocator = alloc, .io = io_mod.getIo() };
-    defer client.deinit();
-    const url = try std.fmt.allocPrint(alloc, "{s}/latest.txt", .{base_url});
-    defer alloc.free(url);
-
-    const raw = try fetchTextBounded(
-        &client,
-        alloc,
-        url,
-        latest_version_max_bytes,
-    );
-    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
-    if (trimmed.len == raw.len) return raw;
-
-    const duped = try alloc.dupe(u8, trimmed);
-    alloc.free(raw);
-    return duped;
+fn parseStableReleaseManifest(alloc: Allocator, bytes: []const u8) !Target {
+    var manifest = try fork_release.Manifest.parse(alloc, bytes);
+    defer manifest.deinit(alloc);
+    return Target.initStable(alloc, manifest.version);
 }
 
 fn fetchTextBounded(
@@ -329,8 +310,29 @@ test "E2E upgrade base accepts only explicit IPv4 loopback origins" {
     try std.testing.expect(!isLoopbackE2eUpgradeBase("http://localhost:1234"));
 }
 
-test "production upgrade base uses the fx release domain" {
-    try std.testing.expectEqualStrings("https://releases.fx.sh", resolveCdnBase());
+test "production upgrade base uses fxXL GitHub releases" {
+    try std.testing.expectEqualStrings(
+        "https://github.com/jcd3dr/fxXL/releases/latest/download",
+        resolveReleaseBase(),
+    );
+}
+
+test "stable target is parsed from the fxXL release manifest" {
+    const alloc = std.testing.allocator;
+    var target = try parseStableReleaseManifest(alloc,
+        \\{"schema_version":1,"version":"0.2.0","upstream_commit":"0123456789abcdef0123456789abcdef01234567","source_commit":"89abcdef0123456789abcdef0123456789abcdef"}
+    );
+    defer target.deinit(alloc);
+
+    try std.testing.expectEqual(update_target.Channel.stable, target.channel());
+    try std.testing.expectEqualStrings("0.2.0", target.version());
+}
+
+test "fxXL updater rejects the unpublished dev channel" {
+    try std.testing.expectError(
+        error.UnsupportedChannel,
+        fetchTarget(std.testing.allocator, .dev, release_base),
+    );
 }
 
 test "extractChecksumHex parses sha256sum format" {

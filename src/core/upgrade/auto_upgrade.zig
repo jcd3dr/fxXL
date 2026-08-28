@@ -1,5 +1,6 @@
 const std = @import("std");
 const io_mod = @import("../shared/io.zig");
+const fork_release = @import("fork_release.zig");
 const helpers = @import("upgrade_helpers.zig");
 const update_target = @import("update_target.zig");
 
@@ -171,8 +172,8 @@ pub const AutoUpgrade = struct {
         alloc: Allocator,
         current: update_target.CurrentBuild,
     ) void {
-        const cdn_base = helpers.resolveCdnBase();
-        var target = helpers.fetchTarget(alloc, self.selected_channel, cdn_base) catch return;
+        const release_base = helpers.resolveReleaseBase();
+        var target = helpers.fetchTarget(alloc, self.selected_channel, release_base) catch return;
         defer target.deinit(alloc);
 
         if (!target.shouldInstall(current)) return;
@@ -182,7 +183,7 @@ pub const AutoUpgrade = struct {
         self.setLatestVersion(label);
         self.setState(.downloading);
 
-        self.downloadAndInstall(alloc, target, cdn_base) catch {
+        self.downloadAndInstall(alloc, release_base) catch {
             self.setState(.failed);
             return;
         };
@@ -202,8 +203,7 @@ pub const AutoUpgrade = struct {
     fn downloadAndInstall(
         self: *AutoUpgrade,
         alloc: Allocator,
-        target: update_target.Target,
-        cdn_base: []const u8,
+        release_base: []const u8,
     ) InstallError!void {
         var client: std.http.Client = .{ .allocator = alloc, .io = io_mod.getIo() };
         defer client.deinit();
@@ -221,14 +221,14 @@ pub const AutoUpgrade = struct {
         const archive_path = std.fmt.allocPrint(alloc, "{s}/fx.tar.gz", .{tmp_dir}) catch return error.AllocFailed;
         defer alloc.free(archive_path);
 
-        const archive_url = std.fmt.allocPrint(alloc, "{s}/{s}/fx-{s}.tar.gz", .{ cdn_base, target.artifactRef(), helpers.platform }) catch return error.AllocFailed;
+        const archive_url = fork_release.assetUrl(alloc, release_base, helpers.platform) catch return error.AllocFailed;
         defer alloc.free(archive_url);
 
         helpers.downloadFileStreaming(&client, archive_url, archive_path) catch return error.DownloadFailed;
 
         if (self.should_stop.load(.acquire)) return error.Cancelled;
 
-        const checksum_url = std.fmt.allocPrint(alloc, "{s}/{s}/fx-{s}.tar.gz.sha256", .{ cdn_base, target.artifactRef(), helpers.platform }) catch return error.AllocFailed;
+        const checksum_url = fork_release.checksumUrl(alloc, release_base, helpers.platform) catch return error.AllocFailed;
         defer alloc.free(checksum_url);
 
         helpers.verifyChecksum(&client, archive_path, checksum_url) catch return error.ChecksumFailed;

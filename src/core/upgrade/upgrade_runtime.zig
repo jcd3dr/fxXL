@@ -1,6 +1,7 @@
 const std = @import("std");
 const io_mod = @import("../shared/io.zig");
 const output_contracts = @import("../output/output_contracts.zig");
+const fork_release = @import("fork_release.zig");
 const helpers = @import("upgrade_helpers.zig");
 const update_target = @import("update_target.zig");
 
@@ -130,9 +131,9 @@ fn failureResult(
 
 fn failureMessage(err: RunError) []const u8 {
     return switch (err) {
-        error.FetchFailed => "failed to fetch latest version from CDN",
+        error.FetchFailed => "failed to fetch latest fxXL release",
         error.DownloadFailed => "failed to download release archive",
-        error.ChecksumFetchFailed => "failed to fetch checksum from CDN",
+        error.ChecksumFetchFailed => "failed to fetch checksum from fxXL release",
         error.ChecksumMismatch => "downloaded archive failed integrity check",
         error.ExtractionFailed => "failed to extract release archive",
         error.SelfExeNotFound => "could not determine path of running binary",
@@ -177,8 +178,8 @@ fn upgradeWorkerInner(
     progress: *ProgressState,
     show_progress: bool,
 ) !void {
-    const cdn_base = helpers.resolveCdnBase();
-    const fetched_target = helpers.fetchTarget(alloc, channel, cdn_base) catch {
+    const release_base = helpers.resolveReleaseBase();
+    const fetched_target = helpers.fetchTarget(alloc, channel, release_base) catch {
         result.err = .fetch_failed;
         return;
     };
@@ -205,7 +206,7 @@ fn upgradeWorkerInner(
     const archive_path = try std.fmt.allocPrint(alloc, "{s}/fx.tar.gz", .{tmp_dir});
     defer alloc.free(archive_path);
 
-    const archive_url = try std.fmt.allocPrint(alloc, "{s}/{s}/fx-{s}.tar.gz", .{ cdn_base, target.artifactRef(), helpers.platform });
+    const archive_url = try fork_release.assetUrl(alloc, release_base, helpers.platform);
     defer alloc.free(archive_url);
 
     var client: std.http.Client = .{ .allocator = alloc, .io = io_mod.getIo() };
@@ -221,7 +222,7 @@ fn upgradeWorkerInner(
     };
     progress.markFinishing();
 
-    const checksum_url = try std.fmt.allocPrint(alloc, "{s}/{s}/fx-{s}.tar.gz.sha256", .{ cdn_base, target.artifactRef(), helpers.platform });
+    const checksum_url = try fork_release.checksumUrl(alloc, release_base, helpers.platform);
     defer alloc.free(checksum_url);
 
     helpers.verifyChecksum(&client, archive_path, checksum_url) catch |err| {

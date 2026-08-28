@@ -77,13 +77,19 @@ exec ${shellQuote(FX_BIN)} "$@"
   const archive = readFileSync(archivePath);
   const checksum = createHash("sha256").update(archive).digest("hex");
   const platform = `${process.platform === "darwin" ? "macos" : "linux"}-${process.arch === "arm64" ? "aarch64" : "x86_64"}`;
-  const archiveRoute = `/v9.9.9/fx-${platform}.tar.gz`;
+  const archiveRoute = `/fx-${platform}.tar.gz`;
+  const manifest = JSON.stringify({
+    schema_version: 1,
+    version: "9.9.9",
+    upstream_commit: "0123456789abcdef0123456789abcdef01234567",
+    source_commit: "89abcdef0123456789abcdef0123456789abcdef",
+  });
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     fetch(request) {
       const path = new URL(request.url).pathname;
-      if (path === "/latest.txt") return new Response("v9.9.9\n");
+      if (path === "/manifest.json") return new Response(manifest);
       if (path === archiveRoute) return new Response(archive);
       if (path === `${archiveRoute}.sha256`) return new Response(`${checksum}\n`);
       return new Response("not found", { status: 404 });
