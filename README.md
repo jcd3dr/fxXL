@@ -47,11 +47,39 @@ fx login grok
 fx
 ```
 
-`fx login codex` and `fx login grok` select that provider and a model from its authenticated catalog. Inside fx, open `/setup` and choose **Model provider** to move between Gateway, Codex, and Grok. `/model` lists the active provider's fetched models. Subscription model IDs are the raw IDs returned by each authenticated catalog. Use `/logout codex` or `/logout grok` to remove that subscription session without affecting other providers; choosing it again from **Model provider** starts sign-in.
+Or point fx at any third-party OpenAI-compatible endpoint, such as OpenRouter or Omnirouter:
+
+```bash
+export FX_COMPAT_BASE_URL=https://openrouter.ai/api/v1
+export FX_COMPAT_API_KEY=sk-or-...
+fx login compat
+fx
+```
+
+`fx login codex`, `fx login grok`, and `fx login compat` select that provider and a model from its authenticated catalog. Inside fx, open `/setup` and choose **Model provider** to move between Gateway, Codex, Grok, and the OpenAI-compatible endpoint. `/model` lists the active provider's fetched models. Subscription and third-party model IDs are the raw IDs returned by each authenticated catalog. Use `/logout codex`, `/logout grok`, or `/logout compat` to remove that session without affecting other providers; choosing it again from **Model provider** starts sign-in.
 
 The OpenAI Codex route uses ChatGPT subscription access directly and never sends its OAuth token to Vercel AI Gateway. The session is stored privately at `~/.fx/chatgpt-auth.json` and refreshed when needed. On supported Codex models, `/fast` requests OpenAI's priority service tier and consumes ChatGPT credits at the higher Fast mode rate.
 
 The Grok route uses subscription access directly at xAI and never sends its OAuth token to Vercel AI Gateway or OpenAI. Its session is stored privately at `~/.fx/grok-auth.json`, refreshed when needed, and used only with the authenticated xAI catalog and Responses API.
+
+### OpenAI-compatible endpoints
+
+The `compat` provider talks the OpenAI Chat Completions API to whatever base URL you configure, so any service that speaks it works: OpenRouter, Omnirouter, a self-hosted router, or a local server. fx never guesses the endpoint, and never sends its API key anywhere but the base URL you set.
+
+Configure it with two environment variables:
+
+| Variable | Meaning |
+| --- | --- |
+| `FX_COMPAT_BASE_URL` | Base URL for the endpoint, such as `https://openrouter.ai/api/v1`. fx appends `/chat/completions` and `/models`. |
+| `FX_COMPAT_API_KEY` | API key sent as `Authorization: Bearer`. |
+
+`fx login compat` reads those two variables and saves them privately at `~/.fx/compat-auth.json`, so later runs work without them in the shell. The key is taken from the environment rather than an argument, so it never lands in your shell history or the process table. Either variable still overrides the saved value when set, which is how you point one shell at a different endpoint. `fx logout compat` removes the saved endpoint.
+
+The base URL must be `https`, unless it is loopback (`127.0.0.1`, `localhost`, or `::1`), which lets a local router or proxy work over plain HTTP. It must not embed a user, password, or query string.
+
+Models come from `GET {base_url}/models`. fx reads the capability metadata a router publishes there, such as OpenRouter's `supported_parameters` and `input_modalities`, and falls back to conservative defaults when a service publishes only model IDs. Because a third-party endpoint prices its own traffic, fx records the token counts it returns but reports no fx-side cost for the route.
+
+`/model`, `/fast`, tool calling, vision, and reasoning effort all work on this route to the extent the endpoint supports them. Choose a tool-capable model: fx drives its work through tools, and a model that ignores them will not get far.
 
 To use an AI Gateway API key instead:
 

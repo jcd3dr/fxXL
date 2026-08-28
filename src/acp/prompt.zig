@@ -447,6 +447,8 @@ pub fn handlePrompt(
                 credentials.missing_chatgpt_credential_message
             else if (session.provider == .grok)
                 credentials.missing_grok_credential_message
+            else if (session.provider == .compat)
+                credentials.missing_compat_credential_message
             else
                 credentials.missing_credential_message,
         } };

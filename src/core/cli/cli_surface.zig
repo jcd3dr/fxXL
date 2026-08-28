@@ -5,6 +5,8 @@ const app_lifecycle = @import("../app/app_lifecycle.zig");
 const background_record_liveness = @import("../background/background_record_liveness.zig");
 const background_store = @import("../background/background_store.zig");
 const chatgpt_oauth = @import("../auth/chatgpt_oauth.zig");
+const compat_endpoint = @import("../config/compat_endpoint.zig");
+const compat_session = @import("../auth/compat_session.zig");
 const grok_oauth = @import("../auth/grok_oauth.zig");
 const acp_runner = @import("acp_runner.zig");
 const cli_ask = @import("cli_ask.zig");
@@ -214,6 +216,53 @@ pub const Config = struct {
 const LocalSurfaceOptions = struct {
     format: output_contracts.OutputFormat = .text,
 };
+
+pub const compat_credential_hint = "set " ++ compat_endpoint.base_url_env ++ " and " ++
+    compat_endpoint.api_key_env ++ ", then run fx login compat";
+
+/// `fx login compat` takes its endpoint and key from the environment rather
+/// than from argv, so the API key never lands in the process table or a shell
+/// history, and persists them for later runs.
+fn saveCompatLoginFromEnvironment(alloc: Allocator) !void {
+    const raw_base_url = io_mod.getenv(compat_endpoint.base_url_env) orelse
+        return error.CompatBaseUrlEmpty;
+    const raw_api_key = io_mod.getenv(compat_endpoint.api_key_env) orelse
+        return error.CompatApiKeyEmpty;
+
+    var session = try compat_session.build(alloc, raw_base_url, raw_api_key, null);
+    defer session.deinit(alloc);
+    try compat_session.saveNewSession(alloc, session);
+}
+
+/// Returns a borrowed static message, or an allocated one the caller leaks into
+/// the command's arena for the remainder of this failing invocation.
+fn compatLoginErrorMessage(alloc: Allocator, err: anyerror) ![]const u8 {
+    const detail = switch (err) {
+        error.CompatBaseUrlEmpty,
+        error.CompatBaseUrlTooLong,
+        error.CompatBaseUrlNotAbsolute,
+        error.CompatBaseUrlInsecure,
+        error.CompatBaseUrlHasCredentials,
+        error.CompatBaseUrlHasQuery,
+        error.CompatApiKeyEmpty,
+        error.CompatApiKeyTooLong,
+        error.CompatApiKeyUnsafe,
+        => compat_endpoint.message(@errorCast(err)),
+        error.HomeNotSet => "HOME is not set, so the endpoint cannot be saved",
+        else => "could not save the OpenAI-compatible endpoint",
+    };
+    return std.fmt.allocPrint(
+        alloc,
+        "fx login: {s}\nSet {s} and {s}, for example {s}={s}\n",
+        .{
+            detail,
+            compat_endpoint.base_url_env,
+            compat_endpoint.api_key_env,
+            compat_endpoint.base_url_env,
+            compat_endpoint.suggestions[0].base_url,
+        },
+    );
+}
 
 fn parseLoginProvider(rest: []const [:0]const u8) !?model_provider.ProviderId {
     if (rest.len == 0) return null;
@@ -703,6 +752,7 @@ fn activateProviderSelection(
             .gateway => "Gateway is already selected.\n",
             .codex => "Codex is already selected.\n",
             .grok => "Grok is already selected.\n",
+            .compat => "The OpenAI-compatible endpoint is already selected.\n",
         });
         return true;
     }
@@ -749,6 +799,7 @@ fn activateProviderSelection(
             switch (target) {
                 .codex => "Codex credential is unavailable",
                 .grok => "Grok credential is unavailable",
+                .compat => compat_credential_hint,
                 .gateway => "configure a Gateway credential first",
             },
         );
@@ -758,6 +809,7 @@ fn activateProviderSelection(
         try writeProviderActivationError(alloc, deps, caller, switch (target) {
             .codex => "Codex model catalog is unavailable",
             .grok => "Grok model catalog is unavailable",
+            .compat => "the OpenAI-compatible model catalog is unavailable",
             .gateway => "Gateway model catalog is unavailable",
         });
         return false;
@@ -803,6 +855,7 @@ fn activateProviderSelection(
     if (performed_login) |provider| switch (provider) {
         .codex => try writeStdout(deps, "Signed in with Codex.\n"),
         .grok => try writeStdout(deps, "Signed in with Grok.\n"),
+        .compat => try writeStdout(deps, "Saved the OpenAI-compatible endpoint.\n"),
         .gateway => unreachable,
     };
     if (caller == .provider_command) {
@@ -810,6 +863,7 @@ fn activateProviderSelection(
             .gateway => "Provider set to Gateway.\n",
             .codex => "Provider set to Codex.\n",
             .grok => "Provider set to Grok.\n",
+            .compat => "Provider set to the OpenAI-compatible endpoint.\n",
         });
     }
     return true;
@@ -932,7 +986,7 @@ fn runNonInteractiveWithDeps(
         .issue => |rest| return runGithubWorkflow(alloc, rest, cfg, global_args.modifiers, deps, .issue),
         .login => |rest| {
             const maybe_login_provider = parseLoginProvider(rest) catch {
-                try writeStderr(deps, "usage: fx login [vercel|codex|grok]\n");
+                try writeStderr(deps, "usage: fx login [vercel|codex|grok|compat]\n");
                 return .handled_failure;
             };
             // Preserve the original `fx login` behavior for scripts and users.
@@ -986,12 +1040,22 @@ fn runNonInteractiveWithDeps(
                     }
                     try writeStdout(deps, "Signed in with Grok.\n");
                 },
+                .compat => {
+                    saveCompatLoginFromEnvironment(alloc) catch |err| {
+                        try writeStderr(deps, try compatLoginErrorMessage(alloc, err));
+                        return .handled_failure;
+                    };
+                    if (!try activateProviderSelection(alloc, cfg, deps, .compat, .provider_login)) {
+                        return .handled_failure;
+                    }
+                    try writeStdout(deps, "Saved the OpenAI-compatible endpoint.\n");
+                },
             }
             return .handled_success;
         },
         .logout => |rest| {
             const maybe_login_provider = parseLoginProvider(rest) catch {
-                try writeStderr(deps, "usage: fx logout [vercel|codex|grok]\n");
+                try writeStderr(deps, "usage: fx logout [vercel|codex|grok|compat]\n");
                 return .handled_failure;
             };
             // Preserve the original `fx logout` behavior for scripts and users.
@@ -1039,6 +1103,26 @@ fn runNonInteractiveWithDeps(
                     },
                 };
             }
+            if (login_provider == .compat) {
+                const outcome = compat_session.logout() catch {
+                    try writeStderr(deps, "fx logout: failed to durably remove the saved OpenAI-compatible endpoint\n");
+                    return .handled_failure;
+                };
+                return switch (outcome) {
+                    .deleted => result: {
+                        try writeStdout(deps, "Removed the saved OpenAI-compatible endpoint.\n");
+                        break :result .handled_success;
+                    },
+                    .missing => result: {
+                        try writeStdout(deps, "No saved OpenAI-compatible endpoint found.\n");
+                        break :result .handled_success;
+                    },
+                    .deleted_not_durable => result: {
+                        try writeStderr(deps, "fx logout: failed to durably remove the saved OpenAI-compatible endpoint\n");
+                        break :result .handled_failure;
+                    },
+                };
+            }
             const result = login_flow.logout(alloc, cfg.gateway_provider.oauth_transport) catch |err| switch (err) {
                 error.SessionDeleteFailed => {
                     try writeStderr(deps, "fx logout: failed to durably remove saved fx login\n");
@@ -1080,11 +1164,13 @@ fn runNonInteractiveWithDeps(
         },
         .provider => |rest| {
             if (rest.len != 1) {
-                try writeStderr(deps, "usage: fx provider <gateway|codex|grok>\n");
+                try writeStderr(deps, "usage: fx provider <gateway|codex|grok|compat>\n");
                 return .handled_failure;
             }
-            const target = model_provider.parse(rest[0]) orelse {
-                try writeStderr(deps, "fx provider: expected gateway, codex, or grok\n");
+            // Accept the same slugs and aliases `fx login` does, so
+            // `fx provider openrouter` reaches the OpenAI-compatible route.
+            const target = provider_catalog.parse(rest[0]) orelse {
+                try writeStderr(deps, "fx provider: expected gateway, codex, grok, or compat\n");
                 return .handled_failure;
             };
             return if (try activateProviderSelection(alloc, cfg, deps, target, .provider_command))
@@ -1180,6 +1266,7 @@ fn runNonInteractiveWithDeps(
                     .gateway => "fx models: Gateway model catalog is unavailable\n",
                     .codex => "fx models: Codex model catalog is unavailable\n",
                     .grok => "fx models: Grok model catalog is unavailable\n",
+                    .compat => "fx models: OpenAI-compatible model catalog is unavailable\n",
                 });
                 return .handled_failure;
             };

@@ -2,6 +2,7 @@ const std = @import("std");
 const auth_runtime = @import("../../core/auth/auth_runtime.zig");
 const credentials = @import("../../core/auth/credentials.zig");
 const login_flow = @import("../../core/auth/login_flow.zig");
+const provider_catalog = @import("../../core/auth/provider_catalog.zig");
 const picker_state = @import("../../core/input/picker_state.zig");
 const command_specs = @import("../../core/slash_commands/command_specs.zig");
 const display_width = @import("../../core/shared/display_width.zig");
@@ -2060,8 +2061,9 @@ test "auth picker renders the staged switch and disabled team screens" {
         .include_skip = false,
         .stage = .provider,
     };
+    // Header, gap, then one row per selectable provider.
     const provider_rows = authPickerRowCount(provider_view);
-    try std.testing.expectEqual(@as(u16, 5), provider_rows);
+    try std.testing.expectEqual(@as(u16, 6), provider_rows);
     var provider_header = try composeAuthPickerRow(alloc, provider_view, 0, provider_rows, 80);
     defer provider_header.deinit(alloc);
     try std.testing.expect(std.mem.startsWith(u8, provider_header.items, ui_render.dim_style));
@@ -2081,6 +2083,14 @@ test "auth picker renders the staged switch and disabled team screens" {
         display_width.visibleWidthIgnoringAnsi(provider_selected.items[0..provider_marker]),
     );
     try std.testing.expect(std.mem.find(u8, provider_selected.items, "current") != null);
+    var provider_compat = try composeAuthPickerRow(alloc, provider_view, provider_rows - 1, provider_rows, 80);
+    defer provider_compat.deinit(alloc);
+    try std.testing.expect(std.mem.find(
+        u8,
+        provider_compat.items,
+        provider_catalog.label(.compat),
+    ) != null);
+    try std.testing.expect(std.mem.find(u8, provider_compat.items, "available") != null);
 
     const switch_view = auth_runtime.PickerView{
         .active = true,

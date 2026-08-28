@@ -16,6 +16,7 @@ pub const Bundle = struct {
         vercel,
         chatgpt,
         grok,
+        compat,
     };
     pub const Capabilities = struct {
         fx_search: bool = false,
@@ -51,12 +52,14 @@ pub const Set = struct {
     gateway: Bundle,
     codex: Bundle,
     grok: Bundle,
+    compat: Bundle = .{},
 
     pub fn select(self: Set, provider: model_provider.ProviderId) Bundle {
         return switch (provider) {
             .gateway => self.gateway,
             .codex => self.codex,
             .grok => self.grok,
+            .compat => self.compat,
         };
     }
 
@@ -65,6 +68,7 @@ pub const Set = struct {
             .gateway = self.gateway.deferred_usage,
             .codex = self.codex.deferred_usage,
             .grok = self.grok.deferred_usage,
+            .compat = self.compat.deferred_usage,
         };
     }
 };
@@ -74,6 +78,7 @@ pub fn gateway_only(gateway: Bundle) Set {
         .gateway = gateway,
         .codex = .{},
         .grok = .{},
+        .compat = .{},
     };
 }
 

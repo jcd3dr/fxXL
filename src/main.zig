@@ -4024,6 +4024,12 @@ test {
     _ = @import("gateway/xai_grok_models.zig");
     _ = @import("gateway/xai_grok.zig");
     _ = @import("gateway/xai_grok_permission_reviewer.zig");
+    _ = @import("core/config/compat_endpoint.zig");
+    _ = @import("core/auth/compat_session.zig");
+    _ = @import("gateway/openai_compat_protocol.zig");
+    _ = @import("gateway/openai_compat_models.zig");
+    _ = @import("gateway/openai_compat.zig");
+    _ = @import("gateway/openai_compat_permission_reviewer.zig");
     _ = credentials;
     _ = @import("core/auth/oauth.zig");
     _ = @import("core/auth/oauth_session.zig");
