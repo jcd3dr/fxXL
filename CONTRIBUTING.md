@@ -404,21 +404,58 @@ Check in the golden file and wire a regression test that re-runs `fx replay` in 
 
 * Do not add a general alternate-screen (`\x1b[?1049h/l`) render path. fx is inline by design except for the five exclusive owner classes represented by `AlternateScreenOwner`: interactive tool-approval review, the full-transcript screen, catalog menus, the ctrl+x subagent manager, and the hosted child-terminal takeover. The terminal-session owner is entered only from the manager after `TerminalHost` grants the human write lease, has no permanent fx chrome, and must release the lease on detach. Every owner must leave or explicitly hand off the alternate buffer and restore the main grid, composer, cursor, paste, mouse, focus, and keyboard modes before resolving, cancelling, or shutting down
 
+## Maintaining the Downstream Patch Stack
+
+This repository is maintained as the current upstream source plus a small,
+linear set of fxXL patches. `origin` is the fxXL distribution repository,
+`upstream` is `https://github.com/vercel-labs/fx.git`, and `UPSTREAM_BASE`
+records the exact full upstream commit beneath the patch stack.
+
+Keep provider behavior, distribution behavior, and documentation/governance in
+separate commits. Do not merge upstream into `main`, copy whole upstream files
+without need, or mix an upstream sync with a new fxXL feature.
+
+Use this sync procedure on a dedicated branch:
+
+```bash
+git remote add upstream https://github.com/vercel-labs/fx.git  # first time only
+git fetch upstream --tags
+git switch -c maintenance/upstream-sync
+old_base=$(cat UPSTREAM_BASE)
+git branch "archive/pre-upstream-sync-$(date +%Y%m%d)"
+git rebase --onto upstream/main "$old_base"
+git rev-parse upstream/main > UPSTREAM_BASE
+git add UPSTREAM_BASE
+git commit -m "chore: record upstream sync base"
+```
+
+Resolve conflicts one patch at a time and run `git range-diff` plus the full
+verification suite before replacing `main`. If upstream implements an fxXL
+feature, drop or reduce the corresponding patch instead of preserving duplicate
+code. Updating published `main` after this rebase requires an explicitly
+reviewed `git push --force-with-lease`; never use an unguarded force push.
+
+The mandatory checklist and distribution invariants for humans and AI agents
+are in [`AGENTS.md`](AGENTS.md).
+
 ## Releases
 
-Releases are triggered automatically when the version in `src/main.zig` changes on `main`:
+`FXXL_VERSION` is the fork release version. The upstream application version
+in `src/main.zig` remains upstream-owned and must not be changed merely to
+publish fxXL.
 
-1. Edit `pub const version = "X.Y.Z";` in `src/main.zig`
-2. Merge to `main`
-3. The release workflow checks if `vX.Y.Z` tag exists; if not, it builds four platform binaries, creates the git tag, and publishes a GitHub Release with the binaries attached
+1. Update `FXXL_VERSION` to a new strict SemVer value in a reviewed commit.
+2. Merge the verified patch stack to `main`.
+3. The release workflow runs tests, builds Linux x86_64 and aarch64 archives,
+   generates checksums and `manifest.json`, creates `fxxl-vX.Y.Z`, and publishes
+   a GitHub Release using only the repository `GITHUB_TOKEN`.
+4. Smoke-test the canonical installer into a temporary directory before
+   considering the release usable.
 
-The install script and `fx upgrade` fetch binaries from `releases.fx.sh`, backed by the public Vercel Blob CDN. No authentication or external CLI tools are required. The release workflow also publishes binaries to the CDN and updates `latest.txt` automatically.
-
-After CI passes for a push to `main`, the dev release workflow publishes commit-addressed binaries and then updates `dev.json`. Dogfooders opt in with `fx upgrade --channel dev`; the choice is stored in their user settings and applies to manual upgrades, automatic upgrades, and the `ctrl+g` handoff. `fx upgrade --channel stable` returns to tagged releases. Dev publishing does not create tags or GitHub Releases.
-
-Release notes are public product copy. Describe user-visible behavior, always spell the product `fx`, and omit contributor attribution, tracker references, repository or website work, delivery infrastructure, CI and test details, branch history, and implementation-only refactors. Use commits and pull requests as research evidence only. Changelog formatting and release-marker rules live in `AGENTS.md`.
-
-Do not create tags manually. The workflow owns tag creation.
+Both `setup.sh` and `fx upgrade` consume the latest release from
+`jcd3dr/fxXL`. The dev update channel and upstream CDN publication are
+intentionally disabled. Do not create release tags manually; the workflow owns
+tag creation.
 
 ## Benchmarks
 

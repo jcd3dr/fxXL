@@ -4,7 +4,7 @@
  ⠀⠀⠀⣠⣶⣿⣿⣷⣶⡶⣶⣶⣆⠀⠀⠀⣴⣶⣶⠆
  ⠀⠀⠀⠉⢹⣿⣿⠉⠉⠀⠘⢿⣿⣧⣀⣾⣿⡿⠃⠀             Tiny, open, embeddable, native coding agent.
  ⠀⠀⠀⠀⣼⣿⡏⠀⠀⠀⠀⠀⠻⣿⣿⣿⠟⠀⠀⠀
- ⠀⠀⠀⢀⣿⣿⠃⠀⠀⠀⠀⢠⣦⠘⢿⣿⣷⡀⠀⠀             curl -fsSL https://fx.sh/setup.sh | bash
+ ⠀⠀⠀⢀⣿⣿⠃⠀⠀⠀⠀⢠⣦⠘⢿⣿⣷⡀⠀⠀             curl -fsSL https://raw.githubusercontent.com/jcd3dr/fxXL/main/setup.sh | bash
  ⠀⠀⠀⣸⣿⡟⠀⠀⠀⠀⣰⣿⣿⠗⠀⠻⣿⣿⣄⠀
  ⠀⠀⠀⣿⣿⠇⠀⠀⠀⠾⠿⠿⠋⠀⠀⠀⠘⠿⠿⠦             ⚠ Status: Experimental. Use at your own risk.
   ⠀⣸⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -12,6 +12,11 @@
 ```
 
 fx is a coding agent harness and CLI written in Zig, optimized for research and embeddability as part of larger systems.
+
+fxXL is the downstream distribution in this repository. It stays close to
+[vercel-labs/fx](https://github.com/vercel-labs/fx) and adds generic
+OpenAI-compatible third-party and local inference plus fork-owned installation
+and updates.
 
 It focuses on minimalism and performance across the board, from system prompt design to its tools, feature set, and 7.8 MiB binary.
 
@@ -22,8 +27,13 @@ It's open source (Apache-2.0), model-agnostic, and suitable for both local and c
 ## Install
 
 ```bash
-curl -fsSL https://fx.sh/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jcd3dr/fxXL/main/setup.sh | bash
 ```
+
+The installer supports Linux x86_64 and aarch64 and installs `fx` in
+`~/.local/bin` without `sudo`. On Windows 11, run this same Linux installer
+inside WSL; there is no separate WSL build or installer. See
+[Windows 11 and WSL](docs/windows-wsl.md).
 
 ## Run fx
 
@@ -47,11 +57,11 @@ fx login grok
 fx
 ```
 
-Or point fx at any third-party OpenAI-compatible endpoint, such as OpenRouter or Omnirouter:
+Or point fx at any third-party OpenAI-compatible endpoint:
 
 ```bash
-export FX_COMPAT_BASE_URL=https://openrouter.ai/api/v1
-export FX_COMPAT_API_KEY=sk-or-...
+export FX_COMPAT_BASE_URL=https://provider.example/v1
+export FX_COMPAT_API_KEY=your-provider-key
 fx login compat
 fx
 ```
@@ -64,7 +74,7 @@ The Grok route uses subscription access directly at xAI and never sends its OAut
 
 ### OpenAI-compatible endpoints
 
-The `compat` provider talks the OpenAI Chat Completions API to whatever base URL you configure, so any service that speaks it works: OpenRouter, Omnirouter, a self-hosted router, or a local server. fx never guesses the endpoint, and never sends its API key anywhere but the base URL you set.
+The `compat` provider talks the OpenAI Chat Completions API to whatever base URL you configure, so any compatible hosted service, self-hosted router, or local server can work. It is not tied to OpenRouter or any other vendor. fx never guesses the endpoint, and never sends its API key anywhere but the base URL you set.
 
 Configure it with two environment variables:
 
@@ -76,6 +86,19 @@ Configure it with two environment variables:
 `fx login compat` reads those two variables and saves them privately at `~/.fx/compat-auth.json`, so later runs work without them in the shell. The key is taken from the environment rather than an argument, so it never lands in your shell history or the process table. Either variable still overrides the saved value when set, which is how you point one shell at a different endpoint. `fx logout compat` removes the saved endpoint.
 
 The base URL must be `https`, unless it is loopback (`127.0.0.1`, `localhost`, or `::1`), which lets a local router or proxy work over plain HTTP. It must not embed a user, password, or query string.
+
+For Ollama running in the same Linux or WSL environment:
+
+```bash
+export FX_COMPAT_BASE_URL=http://127.0.0.1:11434/v1
+export FX_COMPAT_API_KEY=ollama
+fx login compat
+fx
+```
+
+Ollama does not normally validate that key, but fx requires a non-empty value
+for every OpenAI-compatible profile. Other local servers can use any non-empty
+dummy value when they do not require authentication.
 
 Models come from `GET {base_url}/models`. fx reads the capability metadata a router publishes there, such as OpenRouter's `supported_parameters` and `input_modalities`, and falls back to conservative defaults when a service publishes only model IDs. Because a third-party endpoint prices its own traffic, fx records the token counts it returns but reports no fx-side cost for the route.
 
@@ -166,8 +189,8 @@ Read the [fx documentation](https://fx.sh/docs).
 Building fx requires [Zig 0.16.0+](https://ziglang.org/download/):
 
 ```bash
-git clone https://github.com/vercel-labs/fx.git
-cd fx
+git clone https://github.com/jcd3dr/fxXL.git
+cd fxXL
 zig build -Doptimize=ReleaseSafe
 ./zig-out/bin/fx
 ```
