@@ -4,19 +4,32 @@ Although `fx` was built natively for Unix environments (macOS and Linux) because
 
 With this setup you keep all your projects in your normal Windows folders (for example, `D:\dev\`) and run `fx` commands directly from PowerShell, with no need to move your files into the Linux virtual machine.
 
-## Step 1: Install inside WSL
+## Step 1: Build inside WSL
 
-First, make sure WSL (Windows Subsystem for Linux) is enabled with your preferred distribution (such as Ubuntu). Open the WSL terminal and install `fx` using the official Linux method described in the [Install](../README.md#install) section of this repository.
+First, make sure WSL (Windows Subsystem for Linux) is enabled with your preferred distribution (such as Ubuntu). Open the WSL terminal and build `fx` following the [Install](../README.md#install) section of this repository:
+
+```bash
+git clone https://github.com/jcd3dr/fxXL
+cd fxXL
+zig build
+```
+
+This produces the binary at `zig-out/bin/fx`. Put it somewhere on your `PATH` so the next step can find it, for example:
+
+```bash
+mkdir -p ~/.local/bin
+cp zig-out/bin/fx ~/.local/bin/fx
+```
 
 ## Step 2: Get the exact path to the binary
 
-Inside your WSL terminal, run the following command to find out where the executable was installed:
+Inside your WSL terminal, run the following command to find out where the executable ended up:
 
 ```bash
 which fx
 ```
 
-You'll see a path on screen similar to this one: `/home/your_user/.local/bin/fx` (or similar). Copy that path in full.
+You'll see a path on screen similar to this one: `/home/your_user/.local/bin/fx`. Copy that path in full.
 
 ## Step 3: Create a native function in PowerShell
 
