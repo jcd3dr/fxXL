@@ -47,10 +47,11 @@ fn isLoopbackE2eUpgradeBase(url: []const u8) bool {
 }
 
 pub const platform = platformFromTarget() orelse
-    @compileError("unsupported platform for fxXL auto-upgrade (requires Linux x86_64 or aarch64)");
+    @compileError("unsupported platform for fxXL auto-upgrade (requires macOS or Linux, x86_64 or aarch64)");
 
 fn platformFromTarget() ?[]const u8 {
     const os: ?[]const u8 = switch (builtin.os.tag) {
+        .macos => "macos",
         .linux => "linux",
         else => null,
     };

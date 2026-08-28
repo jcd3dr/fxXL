@@ -78,7 +78,9 @@ pub fn checksumUrl(alloc: Allocator, release_base: []const u8, release_platform:
 
 fn supportedPlatform(release_platform: []const u8) bool {
     return std.mem.eql(u8, release_platform, "linux-x86_64") or
-        std.mem.eql(u8, release_platform, "linux-aarch64");
+        std.mem.eql(u8, release_platform, "linux-aarch64") or
+        std.mem.eql(u8, release_platform, "macos-x86_64") or
+        std.mem.eql(u8, release_platform, "macos-aarch64");
 }
 
 fn validVersion(raw: []const u8) bool {
@@ -173,13 +175,22 @@ test "build stable fxXL GitHub release URLs" {
     );
 }
 
+test "build macOS release URL without requiring a macOS installer" {
+    const url = try assetUrl(std.testing.allocator, stable_release_base, "macos-x86_64");
+    defer std.testing.allocator.free(url);
+    try std.testing.expectEqualStrings(
+        "https://github.com/jcd3dr/fxXL/releases/latest/download/fx-macos-x86_64.tar.gz",
+        url,
+    );
+}
+
 test "reject unsupported fxXL release platforms" {
     try std.testing.expectError(
         error.UnsupportedPlatform,
-        assetUrl(std.testing.allocator, stable_release_base, "macos-x86_64"),
+        checksumUrl(std.testing.allocator, stable_release_base, "linux-riscv64"),
     );
     try std.testing.expectError(
         error.UnsupportedPlatform,
-        checksumUrl(std.testing.allocator, stable_release_base, "linux-riscv64"),
+        assetUrl(std.testing.allocator, stable_release_base, "windows-x86_64"),
     );
 }
