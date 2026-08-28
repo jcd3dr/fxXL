@@ -50,11 +50,8 @@ function maxLineWidth(text: string): number {
   return Math.max(...text.split(/\r?\n/).map((line) => Bun.stringWidth(line)));
 }
 
-function sourceVersion(): string {
-  const source = readFileSync(join(REPO_ROOT, "src/main.zig"), "utf8");
-  const match = source.match(/pub const version = "([^"]+)";/);
-  if (!match) throw new Error("src/main.zig version declaration not found");
-  return match[1];
+function distributionVersion(): string {
+  return readFileSync(join(REPO_ROOT, "FXXL_VERSION"), "utf8").trim();
 }
 
 function doctorSessionDiagnosticsLimit(): number {
@@ -256,7 +253,7 @@ describe("cli: help", () => {
       expect(r.stdout).not.toContain("\x1b[");
       expect(r.stdout).not.toContain("\x1b]2;");
       expect(r.stdout).toStartWith(
-        `𝒇x v${sourceVersion()}\nFast, native coding agent for the terminal.\n`,
+        `𝒇x v${distributionVersion()}\nFast, native coding agent for the terminal.\n`,
       );
       expect(r.stdout).toContain("Commands:\n");
       expect(r.stdout).toContain("Run one noninteractive request");
@@ -450,11 +447,11 @@ With --prompt-permissions, JSON and quiet requests may prompt on stderr only whe
 describe("cli: version", () => {
   for (const alias of ["--version", "-v"]) {
     test(
-      `fx ${alias} prints the source version`,
+      `fx ${alias} prints the distribution version`,
       async () => {
         const r = await runFx([alias]);
         expect(r.code).toBe(0);
-        expect(r.stdout).toBe(`${sourceVersion()}\n`);
+        expect(r.stdout).toBe(`${distributionVersion()}\n`);
         expect(r.stderr).toBe("");
       },
       TIMEOUT,

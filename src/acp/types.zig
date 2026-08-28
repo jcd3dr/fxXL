@@ -186,7 +186,7 @@ pub fn writeInitializeResponse(w: *std.Io.Writer) !void {
     try w.writeAll("\"mcpCapabilities\":{\"http\":true,\"sse\":true},");
     try w.writeAll("\"sessionCapabilities\":{\"list\":{},\"resume\":{},\"close\":{}}");
     try w.writeAll("},\"agentInfo\":{\"name\":\"fx\",\"title\":\"fx\",\"version\":");
-    try writeJsonStr(build_options.app_version, w);
+    try writeJsonStr(build_options.fork_version, w);
     try w.writeAll("},");
     try w.writeAll("\"authMethods\":[]}");
 }
@@ -305,7 +305,7 @@ test "writeInitializeResponse contains required fields" {
     try std.testing.expect(std.mem.find(u8, out.writer.buffered(), "\"loadSession\":true") != null);
     try std.testing.expect(std.mem.find(u8, out.writer.buffered(), "\"name\":\"fx\"") != null);
     try std.testing.expectEqualStrings(
-        build_options.app_version,
+        build_options.fork_version,
         parsed.value.object.get("agentInfo").?.object.get("version").?.string,
     );
     try std.testing.expect(std.mem.find(u8, out.writer.buffered(), "\"image\":false") != null);
