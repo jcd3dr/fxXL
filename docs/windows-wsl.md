@@ -1,68 +1,68 @@
-# 🪟 Guía de Configuración para Windows 11 (Vía WSL + PowerShell)
+# 🪟 Windows 11 Setup Guide (via WSL + PowerShell)
 
-Aunque `fx` fue diseñado nativamente para entornos Unix (macOS y Linux) debido a su arquitectura en Zig, puedes utilizarlo en Windows 11 de forma 100% transparente.
+Although `fx` was built natively for Unix environments (macOS and Linux) because of its Zig architecture, you can use it on Windows 11 in a fully transparent way.
 
-Con esta configuración podrás mantener todos tus proyectos en tus carpetas normales de Windows (por ejemplo, en `D:\dev\`) y ejecutar comandos de `fx` directamente desde PowerShell, sin necesidad de mudar tus archivos dentro de la máquina virtual de Linux.
+With this setup you keep all your projects in your normal Windows folders (for example, `D:\dev\`) and run `fx` commands directly from PowerShell, with no need to move your files into the Linux virtual machine.
 
-## Paso 1: Instalación en WSL
+## Step 1: Install inside WSL
 
-Primero, asegúrate de tener activado WSL (Windows Subsystem for Linux) con tu distribución preferida (como Ubuntu). Abre la terminal de WSL e instala `fx` siguiendo el método oficial para Linux descrito en la sección [Install](../README.md#install) de este repositorio.
+First, make sure WSL (Windows Subsystem for Linux) is enabled with your preferred distribution (such as Ubuntu). Open the WSL terminal and install `fx` using the official Linux method described in the [Install](../README.md#install) section of this repository.
 
-## Paso 2: Obtener la ruta exacta del binario
+## Step 2: Get the exact path to the binary
 
-Dentro de tu terminal de WSL, ejecuta el siguiente comando para averiguar dónde se guardó el ejecutable:
+Inside your WSL terminal, run the following command to find out where the executable was installed:
 
 ```bash
 which fx
 ```
 
-Verás una ruta en la pantalla similar a esta: `/home/tu_usuario/.local/bin/fx` (o similar). Copia esa ruta por completo.
+You'll see a path on screen similar to this one: `/home/your_user/.local/bin/fx` (or similar). Copy that path in full.
 
-## Paso 3: Crear una función nativa en PowerShell
+## Step 3: Create a native function in PowerShell
 
-Para poder invocar el programa desde Windows como si fuera una aplicación nativa, crearemos un alias permanente en tu perfil de PowerShell.
+To be able to call the program from Windows as if it were a native application, we'll create a permanent alias in your PowerShell profile.
 
-1. Abre PowerShell en Windows y ejecuta el siguiente comando para crear y abrir tu archivo de configuración personalizada:
+1. Open PowerShell on Windows and run the following command to create and open your custom profile file:
 
 ```powershell
 New-Item -Path $PROFILE -Type File -Force; notepad $PROFILE
 ```
 
-2. En el Bloc de notas que se acaba de abrir, pega la siguiente función (reemplazando la ruta de ejemplo por la ruta exacta que obtuviste en el Paso 2):
+2. In the Notepad window that opens, paste the following function (replacing the example path with the exact path you got in Step 2):
 
 ```powershell
-function fx { wsl "/home/tu_usuario/.local/bin/fx" $args }
+function fx { wsl "/home/your_user/.local/bin/fx" $args }
 ```
 
-3. Guarda el archivo (`Ctrl + S`) y cierra el Bloc de notas.
+3. Save the file (`Ctrl + S`) and close Notepad.
 
-## Paso 4: Habilitar las políticas de ejecución
+## Step 4: Enable script execution
 
-Por seguridad, Windows 11 bloquea la carga de perfiles personalizados por defecto. Para permitir que tu nueva función se ejecute, corre este comando en tu PowerShell:
+For security, Windows 11 blocks loading custom profiles by default. To let your new function run, run this command in PowerShell:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-(Cuando te pregunte si estás seguro, presiona la tecla `S` para confirmar y luego `Enter`).
+(When it asks if you're sure, press `Y` to confirm and then `Enter`).
 
-## Paso 5: Recargar y listo
+## Step 5: Reload and you're done
 
-Para aplicar los cambios sin cerrar tu terminal actual, ejecuta:
+To apply the changes without closing your current terminal, run:
 
 ```powershell
 . $PROFILE
 ```
 
-## 🚀 Flujo de Trabajo Diario
+## 🚀 Daily workflow
 
-¡Eso es todo! Ahora puedes navegar a cualquiera de tus discos duros o carpetas de desarrollo en Windows y llamar a la IA directamente.
+That's it! Now you can navigate to any of your Windows drives or development folders and call the AI directly.
 
-Por ejemplo, si tus proyectos están en `D:\dev`, simplemente haz:
+For example, if your projects live in `D:\dev`, just do:
 
 ```powershell
-cd D:\dev\tu-proyecto-ia
+cd D:\dev\your-ai-project
 fx --help
 ```
 
-WSL procesará el comando tras bambalinas a la velocidad extrema de Zig, pero leerá, analizará y modificará los archivos que viven de manera segura en tu sistema de archivos de Windows 11.
+WSL handles the command behind the scenes at Zig's native speed, while it reads, analyzes, and edits the files that live safely on your Windows 11 file system.
