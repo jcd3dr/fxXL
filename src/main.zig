@@ -361,7 +361,7 @@ const wasm_skill_root_policy: @import("core/skills/skill_contract.zig").RootPoli
 fn currentBuild() update_target.CurrentBuild {
     return .{
         .channel = compiled_update_channel,
-        .version = version,
+        .version = build_options.fork_version,
         .revision = build_options.git_commit,
     };
 }
@@ -4155,6 +4155,7 @@ test {
     _ = @import("tools/session/read_tool_result.zig");
     _ = @import("tools/skills/install_skill.zig");
     _ = @import("tools/skills/skill.zig");
+    _ = @import("core/upgrade/fork_release.zig");
     _ = @import("core/upgrade/upgrade_helpers.zig");
     _ = @import("core/upgrade/upgrade_runtime.zig");
     _ = @import("core/shared/types.zig");

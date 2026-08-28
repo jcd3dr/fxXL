@@ -41,11 +41,13 @@ pub fn build(b: *std.Build) void {
 
     const git_commit = readGitCommit(b);
     const app_version = readAppVersion(b);
+    const fork_version = readForkVersion(b);
     const update_channel = b.option(UpdateChannel, "update-channel", "Build update channel (stable or dev)") orelse .stable;
 
     const build_options = b.addOptions();
     build_options.addOption([]const u8, "git_commit", git_commit);
     build_options.addOption([]const u8, "app_version", app_version);
+    build_options.addOption([]const u8, "fork_version", fork_version);
     build_options.addOption([]const u8, "update_channel", @tagName(update_channel));
     build_options.addOption(WasmSurface, "wasm_surface", .none);
 
@@ -91,10 +93,10 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_exe_tests.step);
 
     if (wasm_surface != .none) {
-        addWasmArtifact(b, wasm_surface, git_commit, app_version, update_channel);
+        addWasmArtifact(b, wasm_surface, git_commit, app_version, fork_version, update_channel);
     }
     if (napi_surface != .none) {
-        addNapiArtifact(b, napi_surface, target, git_commit, app_version, update_channel);
+        addNapiArtifact(b, napi_surface, target, git_commit, app_version, fork_version, update_channel);
     }
 
     const mcp_test_exports = b.createModule(.{
@@ -313,6 +315,7 @@ fn addWasmArtifact(
     surface: WasmSurface,
     git_commit: []const u8,
     app_version: []const u8,
+    fork_version: []const u8,
     update_channel: UpdateChannel,
 ) void {
     const wasm_target = b.resolveTargetQuery(.{
@@ -333,6 +336,7 @@ fn addWasmArtifact(
     const wasm_options = b.addOptions();
     wasm_options.addOption([]const u8, "git_commit", git_commit);
     wasm_options.addOption([]const u8, "app_version", app_version);
+    wasm_options.addOption([]const u8, "fork_version", fork_version);
     wasm_options.addOption([]const u8, "update_channel", @tagName(update_channel));
     wasm_options.addOption(WasmSurface, "wasm_surface", surface);
 
@@ -371,11 +375,13 @@ fn addNapiArtifact(
     target: std.Build.ResolvedTarget,
     git_commit: []const u8,
     app_version: []const u8,
+    fork_version: []const u8,
     update_channel: UpdateChannel,
 ) void {
     const napi_options = b.addOptions();
     napi_options.addOption([]const u8, "git_commit", git_commit);
     napi_options.addOption([]const u8, "app_version", app_version);
+    napi_options.addOption([]const u8, "fork_version", fork_version);
     napi_options.addOption([]const u8, "update_channel", @tagName(update_channel));
     napi_options.addOption(NapiSurface, "napi_surface", surface);
 
@@ -445,4 +451,18 @@ fn readAppVersion(b: *std.Build) []const u8 {
         @panic("could not parse pub const version in src/main.zig");
     return b.allocator.dupe(u8, bytes[start .. start + end_rel]) catch
         @panic("could not allocate app version");
+}
+
+fn readForkVersion(b: *std.Build) []const u8 {
+    const bytes = std.Io.Dir.cwd().readFileAlloc(
+        b.graph.io,
+        "FXXL_VERSION",
+        b.allocator,
+        .limited(64),
+    ) catch @panic("could not read FXXL_VERSION");
+    defer b.allocator.free(bytes);
+
+    const trimmed = std.mem.trim(u8, bytes, " \t\r\n");
+    if (trimmed.len == 0) @panic("FXXL_VERSION must not be empty");
+    return b.allocator.dupe(u8, trimmed) catch @panic("could not allocate fxXL version");
 }
