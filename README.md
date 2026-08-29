@@ -184,6 +184,12 @@ MCP servers have a 30-second startup timeout by default; set `startup_timeout_ms
 
 Read the [fx documentation](https://fx.sh/docs).
 
+Repository-specific project knowledge is indexed in
+[`docs/README.md`](docs/README.md). Start there for the fxXL downstream
+contract, architecture, decisions, current state, maintenance procedures, and
+validation evidence. Upstream product documentation remains useful for shared
+fx behavior, but it does not override fxXL distribution policy.
+
 ## Build from source
 
 Building fx requires [Zig 0.16.0+](https://ziglang.org/download/):

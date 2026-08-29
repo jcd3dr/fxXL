@@ -54,6 +54,36 @@ examples, not architectural owners.
    `jcd3dr/fxXL`.
 7. Publish a new fxXL release only after exact-commit CI succeeds.
 
+## DARS Knowledge Continuity
+
+<!-- DARS-MAINTENANCE-CONTRACT: v1 -->
+
+This repository organizes durable project knowledge using the DARS lifecycle:
+Organize, Discover, Maintain, Verify. DARS governs documentation continuity; it
+does not authorize source changes, upstream synchronization, branching, release
+publication, or any other implementation action.
+
+Start at [`docs/README.md`](docs/README.md). It routes to the canonical project,
+requirements, architecture, decisions, state, development, and validation
+sources. Before changing the repository:
+
+1. Read this file and the root `README.md`.
+2. Follow only the documentation routes relevant to the requested work.
+3. Treat repository evidence, maintainer statements, inference, history,
+   contradictions, and unknowns as distinct categories.
+4. After any material project change, update only the canonical knowledge that
+   was actually affected. Do not copy the same fact into several documents.
+5. Update [`docs/state/current.md`](docs/state/current.md) when the active
+   objective, blockers, release baseline, or material unresolved obligations
+   change.
+6. Run the documentation verification described in
+   [`docs/validation/evidence.md`](docs/validation/evidence.md) before committing
+   documentation changes.
+
+The dated files under `docs/superpowers/` are historical design and execution
+artifacts. They are evidence of prior intent and rationale, not current progress
+trackers. Current repository state belongs in `docs/state/current.md`.
+
 ## Declaring Work Ready
 
 Do not say the work is "ready", "done", "good to go", "complete", or similar until you have personally run the binary and exercised the change on its happy path. A passing test suite is necessary, not sufficient — tests in this repo do not always construct the full runtime, attach a TTY, or spawn background threads, so they will not catch startup crashes, render regressions, or thread-lifetime bugs.
