@@ -1,10 +1,8 @@
-# fxXL DARS Project Knowledge
+# fxXL Project Knowledge
 
-This index is the canonical router for durable fxXL repository knowledge under
-the **DadeCore Agentic Repository Standard (DARS)**. DARS exists so a new human
-or AI agent can discover what the project is, the rules and rationale that
-shape it, its current continuation point, and how to keep that knowledge
-accurate without access to private prior-session context.
+This index is the canonical router for durable fxXL repository knowledge. It
+implements the DARS lifecycle without requiring contributors to know DARS in
+advance.
 
 ## Knowledge map
 
@@ -13,7 +11,7 @@ accurate without access to private prior-session context.
 | Project | [`project/overview.md`](project/overview.md) | Purpose, scope, users, terminology, and authority |
 | Requirements | [`requirements/fork-contract.md`](requirements/fork-contract.md) | Downstream behavior, distribution constraints, and non-goals |
 | Architecture | [`architecture/fork-architecture.md`](architecture/fork-architecture.md) | Current component boundaries, flows, state, and trust boundaries |
-| Decisions / ADRs | [`decisions/README.md`](decisions/README.md) | Indexed decision records and rationale that must survive future upstream integrations |
+| Decisions | [`decisions/`](decisions/) | Material choices and rationale that must survive future upstream integrations |
 | State | [`state/current.md`](state/current.md) | Current baseline, known failures, unresolved obligations, and next safe continuation point |
 | Development and operations | [`development/maintenance-and-release.md`](development/maintenance-and-release.md) | Setup, patch maintenance, upstream integration, installation, and release procedures |
 | Validation evidence | [`validation/evidence.md`](validation/evidence.md) | Tests, CI, release evidence, and the limits of each check |
@@ -65,24 +63,12 @@ If sources disagree, preserve and record the disagreement. Do not silently
 choose the most convenient source or rewrite code, tests, CI, or release
 configuration during documentation-only work.
 
-## DARS lifecycle in this repository
+## Maintenance cycle
 
-1. **Organize:** use the knowledge map and declared document roles to keep each
-   durable fact in one canonical home. Route to that source instead of copying
-   it into several files.
-2. **Discover:** start with root `README.md` and `AGENTS.md`, then follow only
-   the routes relevant to the question or task. Do not infer authority from a
-   filename, directory pattern, document length, date, or discovery order.
-3. **Maintain:** after a material change, identify which knowledge
-   responsibilities actually changed, update only those canonical sources,
-   and update current state when the continuation point or blockers changed.
-   Preserve material rationale in a decision record when losing it could cause
-   a future contributor to reverse a necessary choice or repeat failed work.
-4. **Verify:** resolve local routes, check documentation integrity, confirm all
-   seven responsibilities remain discoverable, and review semantic fidelity.
-   Current truth, history, inference, contradictions, and unknowns must remain
-   distinguishable.
+After a material change:
 
-DARS is a documentation-continuity system. Following this lifecycle does not
-grant permission to modify source code, synchronize upstream, create branches,
-publish releases, or expand the authorized task scope.
+1. Identify which knowledge responsibilities are affected.
+2. Update only their canonical sources.
+3. Update current state when the continuation point or blockers changed.
+4. Verify local routes, documentation integrity, and semantic fidelity.
+5. Keep uncertainties explicit when repository evidence cannot resolve them.

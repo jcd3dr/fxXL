@@ -1,10 +1,5 @@
 # fxXL Fork Maintenance and Distribution Design
 
-> **Historical record:** This dated design preserves prior rationale. It is not
-> current project state, repository-wide policy, or an active work tracker. Use
-> [`../../state/current.md`](../../state/current.md) for current continuation
-> state and [`../../README.md`](../../README.md) for canonical knowledge routes.
-
 ## Purpose
 
 Turn `jcd3dr/fxXL` into a maintainable downstream distribution of

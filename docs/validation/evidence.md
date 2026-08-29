@@ -28,8 +28,7 @@ For DARS documentation work:
 
 1. Confirm the diff contains only documentation paths authorized by the task.
 2. Run `git diff --check`.
-3. Run a DARS structural verifier when the environment provides one, treating
-   its result as supplemental rather than as proof of semantic continuity.
+3. Run the bundled DARS structural verifier.
 4. Resolve every relative Markdown route from `README.md`, `AGENTS.md`, and the
    DARS documents.
 5. Confirm the seven knowledge responsibilities are discoverable from normal

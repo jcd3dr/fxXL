@@ -58,32 +58,14 @@ examples, not architectural owners.
 
 <!-- DARS-MAINTENANCE-CONTRACT: v1 -->
 
-This repository uses the **DadeCore Agentic Repository Standard (DARS)** to
-keep enough durable knowledge in the repository for a new human or AI agent to
-understand and continue the project without private prior-session context. Its
-living documentation lifecycle is:
-
-* **Organize:** keep project, requirements, architecture, decisions, state,
-  development and operations, and validation knowledge in explicit canonical
-  homes.
-* **Discover:** begin at normal root entry points, then follow only the
-  task-relevant canonical routes before explaining the repository, proposing
-  work, or changing it.
-* **Maintain:** after a material change, update only the canonical knowledge
-  whose project truth or continuation context changed.
-* **Verify:** check routes and document integrity, then confirm semantically
-  that current truth, history, uncertainty, authority, and continuation remain
-  understandable without private context.
-
-DARS governs documentation continuity; it does not authorize source changes,
-upstream synchronization, branching, release publication, or any other
-implementation action.
+This repository organizes durable project knowledge using the DARS lifecycle:
+Organize, Discover, Maintain, Verify. DARS governs documentation continuity; it
+does not authorize source changes, upstream synchronization, branching, release
+publication, or any other implementation action.
 
 Start at [`docs/README.md`](docs/README.md). It routes to the canonical project,
-requirements, architecture, decision records (ADRs), state, development, and
-validation sources. The current ADR index is
-[`docs/decisions/README.md`](docs/decisions/README.md). Before answering a
-repository-level question, proposing work, or changing the repository:
+requirements, architecture, decisions, state, development, and validation
+sources. Before changing the repository:
 
 1. Read this file and the root `README.md`.
 2. Follow only the documentation routes relevant to the requested work.
