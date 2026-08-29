@@ -1,6 +1,15 @@
 # fxXL Fork Maintenance and Distribution Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical record:** This dated plan preserves prior implementation
+> context. Its unchecked boxes do not indicate current pending work, and it is
+> not repository-wide policy. Use
+> [`../../state/current.md`](../../state/current.md) for current continuation
+> state and [`../../README.md`](../../README.md) for canonical knowledge routes.
+
+> **Inactive historical instruction:** While this plan was active, agentic
+> workers were directed to use `superpowers:subagent-driven-development` or
+> `superpowers:executing-plans` and track its checkbox steps. That instruction
+> is preserved as historical evidence and is not current.
 
 **Goal:** Make fxXL a maintainable downstream patch stack with fork-owned Linux releases, a one-command installer, fork-only upgrades, and mandatory agent governance.
 

@@ -24,6 +24,16 @@ For end users, its CLI output style and form factor aim to be closer to a Unix s
 
 It's open source (Apache-2.0), model-agnostic, and suitable for both local and cloud inference.
 
+## Repository knowledge (DARS)
+
+fxXL uses the **DadeCore Agentic Repository Standard (DARS)** so a new human
+or AI agent can understand and continue the project from repository evidence,
+without private prior-session context. Its living documentation cycle is
+**Organize → Discover → Maintain → Verify**. Start at the canonical
+[`docs/README.md`](docs/README.md) router for project knowledge, authority,
+decision records (ADRs), current state, maintenance, and validation. AI agents
+must use [`AGENTS.md`](AGENTS.md) as the canonical repository contract.
+
 ## Install
 
 ```bash
@@ -183,12 +193,8 @@ MCP servers have a 30-second startup timeout by default; set `startup_timeout_ms
 ## Documentation
 
 Read the [fx documentation](https://fx.sh/docs).
-
-Repository-specific project knowledge is indexed in
-[`docs/README.md`](docs/README.md). Start there for the fxXL downstream
-contract, architecture, decisions, current state, maintenance procedures, and
-validation evidence. Upstream product documentation remains useful for shared
-fx behavior, but it does not override fxXL distribution policy.
+Upstream product documentation remains useful for shared fx behavior, but it
+does not override fxXL distribution policy.
 
 ## Build from source
 

@@ -411,6 +411,11 @@ linear set of fxXL patches. `origin` is the fxXL distribution repository,
 `upstream` is `https://github.com/vercel-labs/fx.git`, and `UPSTREAM_BASE`
 records the exact full upstream commit beneath the patch stack.
 
+This section documents the procedure but does not authorize an upstream
+integration or branch creation. Use it only after explicit maintainer
+authorization and within the branch scope approved for that operation. The
+repository-wide boundaries in `AGENTS.md` remain controlling.
+
 Keep provider behavior, distribution behavior, and documentation/governance in
 separate commits. Do not merge upstream into `main`, copy whole upstream files
 without need, or mix an upstream sync with a new fxXL feature.
