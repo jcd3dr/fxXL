@@ -1,8 +1,5 @@
 # Claude repository entry
 
-Before answering substantive questions about this repository or proposing changes, read these root files first:
+@AGENTS.md
 
-1. `AGENTS.md`
-2. `README.md`
-
-Treat `AGENTS.md` as the repository-specific instructions and routing for agents, and `README.md` as the project overview. Follow any deeper documentation they reference as needed for the task.
+Use the root `AGENTS.md` as the canonical repository contract. Follow its routes to `README.md` and deeper task-relevant documentation before answering repository-level questions or proposing changes.
